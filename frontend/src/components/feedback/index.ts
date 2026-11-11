@@ -1,3 +1,2 @@
-// Feedback components stub (Stage 2)
-export {};
-
+export * from "./InlineError";
+export * from "./ConfirmationDialog";

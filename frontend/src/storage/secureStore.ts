@@ -42,6 +42,19 @@ export const secureStorage = {
   },
 
   /**
+   * Check whether an authentication token currently exists in secure storage.
+   */
+  async hasToken(): Promise<boolean> {
+    try {
+      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      return Boolean(token && token.trim().length > 0);
+    } catch (error) {
+      console.warn("SecureStore hasToken error:", error);
+      return false;
+    }
+  },
+
+  /**
    * Cache user profile snapshot for instant cold-start hydration.
    */
   async setUserCache(user: object): Promise<void> {

@@ -1,3 +1,2 @@
-// Context module stub (Stage 2)
-export {};
-
+export * from "./AuthContext";
+export { default } from "./AuthContext";

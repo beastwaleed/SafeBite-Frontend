@@ -1,3 +1,1 @@
-// Home screens stub (Stage 2)
-export {};
-
+export * from "./HomeDashboardScreen";
