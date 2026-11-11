@@ -208,13 +208,13 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginTop: SPACING.md,
-    marginBottom: SPACING.lg,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   logo: {
-    width: 130,
-    height: 130,
-    marginBottom: SPACING.sm,
+    width: 180,
+    height: 180,
+    marginBottom: SPACING.xs,
   },
   title: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryBold,

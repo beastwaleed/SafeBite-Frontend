@@ -20,6 +20,24 @@ export interface ApiErrorResponse {
   }>;
 }
 
+export type HealthTag =
+  | "PREGNANCY"
+  | "INFANT"
+  | "KIDNEY_ISSUE"
+  | "HYPERTENSION"
+  | "DIABETES"
+  | "CELIAC"
+  | "NUT_ALLERGY"
+  | "HEART_CONDITION"
+  | "ELDERLY"
+  | "GENERAL_POPULATION";
+
+export interface HealthProfileResponse {
+  consent: boolean;
+  consentDate: string | null;
+  tags: HealthTag[];
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -27,18 +45,7 @@ export interface UserProfile {
   role: "USER" | "ADMIN";
   healthConsent: boolean;
   consentDate: string | null;
-  healthTags: Array<
-    | "PREGNANCY"
-    | "INFANT"
-    | "KIDNEY_ISSUE"
-    | "HYPERTENSION"
-    | "DIABETES"
-    | "CELIAC"
-    | "NUT_ALLERGY"
-    | "HEART_CONDITION"
-    | "ELDERLY"
-    | "GENERAL_POPULATION"
-  >;
+  healthTags: HealthTag[];
   createdAt: string;
 }
 

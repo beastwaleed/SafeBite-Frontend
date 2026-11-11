@@ -7,7 +7,7 @@ import { HomeDashboardScreen } from "../screens/home/HomeDashboardScreen";
 import { ProfileScreen } from "../screens/profile/ProfileScreen";
 import { ScanPlaceholderScreen } from "../screens/placeholders/ScanPlaceholderScreen";
 import { AskAIPlaceholderScreen } from "../screens/placeholders/AskAIPlaceholderScreen";
-import { SavedPlaceholderScreen } from "../screens/placeholders/SavedPlaceholderScreen";
+import { SavedProductsScreen } from "../screens/saved/SavedProductsScreen";
 import { COLORS, TYPOGRAPHY, DIMENSIONS } from "../constants/theme";
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
@@ -66,7 +66,7 @@ export const AppNavigator: React.FC = () => {
       />
       <Tab.Screen
         name="SavedTab"
-        component={SavedPlaceholderScreen}
+        component={SavedProductsScreen}
         options={{ tabBarLabel: "Saved" }}
       />
       <Tab.Screen

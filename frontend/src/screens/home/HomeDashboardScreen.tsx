@@ -75,6 +75,29 @@ export const HomeDashboardScreen: React.FC<HomeDashboardScreenProps> = ({ naviga
           </View>
         </SafeBiteCard>
 
+        {/* Optional Health Context Setup Card */}
+        {!user?.healthConsent && (
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => navigation.navigate("ProfileTab")}
+          >
+            <SafeBiteCard style={styles.healthBannerCard}>
+              <View style={styles.healthBannerHeader}>
+                <View style={styles.healthIconWrapper}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
+                </View>
+                <View style={styles.healthTextCol}>
+                  <Text style={styles.healthBannerTitle}>Personalize Safety Warnings (Optional)</Text>
+                  <Text style={styles.healthBannerSub}>
+                    Opt-in to highlight heavy metal risks for pregnancy, kidney, or infant care.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+              </View>
+            </SafeBiteCard>
+          </TouchableOpacity>
+        )}
+
         {/* Ask AI Shortcut Card */}
         <SafeBiteCard style={styles.aiCard}>
           <View style={styles.aiHeader}>
@@ -232,6 +255,40 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textInverse,
+  },
+  healthBannerCard: {
+    backgroundColor: "#F2F8F4",
+    borderColor: "#D2E7D8",
+    marginBottom: SPACING.md,
+  },
+  healthBannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  healthIconWrapper: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.pill,
+    backgroundColor: "#E2F0E6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.sm,
+  },
+  healthTextCol: {
+    flex: 1,
+    marginRight: SPACING.xs,
+  },
+  healthBannerTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textPrimary,
+  },
+  healthBannerSub: {
+    fontFamily: TYPOGRAPHY.fontFamily.primary,
+    fontSize: 11,
+    lineHeight: 15,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   aiCard: {
     marginBottom: SPACING.md,

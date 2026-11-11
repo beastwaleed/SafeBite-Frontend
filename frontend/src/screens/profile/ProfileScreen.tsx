@@ -19,11 +19,13 @@ import { InlineError } from "../../components/feedback/InlineError";
 import { useAuth } from "../../context/AuthContext";
 import { parseApiError } from "../../api/error-handler";
 import { ENV } from "../../config/env";
+import { HealthContextScreen } from "./HealthContextScreen";
 
 export const ProfileScreen: React.FC = () => {
   const { user, signOut, updateProfile } = useAuth();
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showHealthModal, setShowHealthModal] = useState(false);
   const [newName, setNewName] = useState(user?.fullName || "");
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -115,9 +117,20 @@ export const ProfileScreen: React.FC = () => {
           </View>
           <Text style={styles.sectionCardBody}>
             {user?.healthConsent
-              ? "Health context active. Results will be compared with your personalized criteria."
+              ? "Health context active. Contaminant data will be matched with your physiological criteria."
               : "Health profile is optional and requires explicit consent. Set up tags to receive curated contamination context."}
           </Text>
+
+          {user?.healthConsent && user?.healthTags && user.healthTags.length > 0 && (
+            <View style={styles.activeTagsRow}>
+              {user.healthTags.map((tag) => (
+                <View key={tag} style={styles.activeTagBadge}>
+                  <Text style={styles.activeTagBadgeText}>{tag.replace("_", " ")}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           <View style={styles.healthStatusRow}>
             <Text style={styles.healthStatusLabel}>Consent Status:</Text>
             <Text
@@ -129,6 +142,17 @@ export const ProfileScreen: React.FC = () => {
               {user?.healthConsent ? "Granted" : "Not configured"}
             </Text>
           </View>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setShowHealthModal(true)}
+            style={styles.manageHealthButton}
+          >
+            <Text style={styles.manageHealthText}>
+              {user?.healthConsent ? "Manage Health Context Tags" : "Set Up Health Context"}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
         </SafeBiteCard>
 
         {/* Account Details Group */}
@@ -234,6 +258,17 @@ export const ProfileScreen: React.FC = () => {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Health Context Preferences Modal */}
+      <Modal
+        visible={showHealthModal}
+        animationType="slide"
+        onRequestClose={() => setShowHealthModal(false)}
+      >
+        <HealthContextScreen
+          onClose={() => setShowHealthModal(false)}
+        />
       </Modal>
     </SafeAreaView>
   );
@@ -355,6 +390,39 @@ const styles = StyleSheet.create({
   healthStatusValue: {
     fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
     fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  activeTagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  activeTagBadge: {
+    backgroundColor: COLORS.surfaceLightGreen,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  activeTagBadgeText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
+    fontSize: 10,
+    color: COLORS.primaryDark,
+  },
+  manageHealthButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.xs,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  manageHealthText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.primary,
   },
   rowItem: {
     flexDirection: "row",
