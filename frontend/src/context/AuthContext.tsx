@@ -120,7 +120,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    * Sign In
    */
   const signIn = async (credentials: SignInRequest) => {
-    setIsLoading(true);
     setAuthError(null);
     try {
       const data = await authService.signIn(credentials);
@@ -132,8 +131,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const parsed = parseApiError(error);
       setAuthError(parsed.message);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -141,7 +138,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    * Sign Up
    */
   const signUp = async (data: SignUpRequest) => {
-    setIsLoading(true);
     setAuthError(null);
     try {
       const result = await authService.signUp(data);
@@ -153,8 +149,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const parsed = parseApiError(error);
       setAuthError(parsed.message);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -162,7 +156,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    * Sign Out
    */
   const signOut = async () => {
-    setIsLoading(true);
     try {
       await authService.signOut();
     } catch {
@@ -173,7 +166,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAuthTokenInMemory(null);
       await secureStorage.clearSession();
       setAuthError(null);
-      setIsLoading(false);
     }
   };
 
@@ -181,7 +173,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    * Update Profile (fullName)
    */
   const updateProfile = async (data: UpdateProfileRequest) => {
-    setIsLoading(true);
     setAuthError(null);
     try {
       const updatedUser = await authService.updateProfile(data);
@@ -191,8 +182,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const parsed = parseApiError(error);
       setAuthError(parsed.message);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 

@@ -74,7 +74,10 @@ export const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ naviga
 
   const handleSignUp = async () => {
     setErrorMessage(null);
-    if (!validate()) return;
+    if (!validate()) {
+      setErrorMessage("Please complete all required fields correctly.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -100,10 +103,11 @@ export const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ naviga
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        enabled={Platform.OS !== "web"}
       >
         <ScrollView
           contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps={Platform.OS === "web" ? "always" : "handled"}
         >
           {/* Top Bar with Back Arrow */}
           <View style={styles.topBar}>

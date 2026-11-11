@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   StyleSheet,
   Text,
   TextInput,
   View,
   TouchableOpacity,
+  Pressable,
+  Platform,
   TextInputProps,
   ViewStyle,
 } from "react-native";
@@ -28,10 +30,14 @@ export const SafeBiteInput: React.FC<SafeBiteInputProps> = ({
   isPassword = false,
   containerStyle,
   style,
+  onFocus,
+  onBlur,
+  autoComplete,
   ...restProps
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const inputRef = useRef<any>(null);
 
   const getBorderColor = () => {
     if (error) return COLORS.error;
@@ -39,15 +45,24 @@ export const SafeBiteInput: React.FC<SafeBiteInputProps> = ({
     return COLORS.border;
   };
 
+  const handleFocusWrapper = () => {
+    inputRef.current?.focus();
+  };
+
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Pressable onPress={handleFocusWrapper}>
+          <Text style={styles.label}>{label}</Text>
+        </Pressable>
+      )}
 
-      <View
+      <Pressable
+        onPress={handleFocusWrapper}
         style={[
           styles.inputWrapper,
           { borderColor: getBorderColor() },
-          isFocused && styles.focusedShadow,
+          isFocused && styles.focusedBorder,
         ]}
       >
         {leftIcon && (
@@ -60,12 +75,21 @@ export const SafeBiteInput: React.FC<SafeBiteInputProps> = ({
         )}
 
         <TextInput
+          ref={inputRef}
           style={[styles.input, style]}
           placeholderTextColor={COLORS.textMuted}
           secureTextEntry={isPassword && !isPasswordVisible}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onFocus={(e) => {
+            setIsFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setIsFocused(false);
+            onBlur?.(e);
+          }}
           autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete={Platform.OS === "web" ? "off" : autoComplete}
           {...restProps}
         />
 
@@ -83,7 +107,7 @@ export const SafeBiteInput: React.FC<SafeBiteInputProps> = ({
             />
           </TouchableOpacity>
         )}
-      </View>
+      </Pressable>
 
       {error ? (
         <View style={styles.errorRow}>
@@ -117,12 +141,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     paddingHorizontal: SPACING.md,
   },
-  focusedShadow: {
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  focusedBorder: {
+    borderColor: COLORS.primary,
   },
   leftIcon: {
     marginRight: SPACING.sm,
@@ -133,6 +153,13 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.primary,
     fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.textPrimary,
+    paddingVertical: 0,
+    ...(Platform.OS === "web"
+      ? ({
+          outlineStyle: "none",
+          outlineWidth: 0,
+        } as any)
+      : {}),
   },
   rightIconButton: {
     padding: SPACING.xs,

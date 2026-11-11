@@ -51,7 +51,10 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
 
   const handleSignIn = async () => {
     setErrorMessage(null);
-    if (!validate()) return;
+    if (!validate()) {
+      setErrorMessage("Please enter your email and password.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -99,10 +102,11 @@ export const SignInScreen: React.FC<SignInScreenProps> = ({ navigation }) => {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        enabled={Platform.OS !== "web"}
       >
         <ScrollView
           contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps={Platform.OS === "web" ? "always" : "handled"}
         >
           {/* Header Section */}
           <View style={styles.header}>

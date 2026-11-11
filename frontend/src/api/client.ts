@@ -8,6 +8,7 @@ export const apiClient: AxiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
+    "X-Tunnel-Skip-Anti-Abuse-Page": "true",
   },
 });
 
