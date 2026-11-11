@@ -21,8 +21,6 @@ export const SplashScreen: React.FC = () => {
   const radialScale = useRef(new Animated.Value(0.001)).current;
   const logoScale = useRef(new Animated.Value(0.65)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const glowScale = useRef(new Animated.Value(0.75)).current;
-  const glowOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslateY = useRef(new Animated.Value(14)).current;
   const loaderOpacity = useRef(new Animated.Value(0)).current;
@@ -60,18 +58,6 @@ export const SplashScreen: React.FC = () => {
             tension: 40,
             useNativeDriver,
           }),
-          Animated.timing(glowOpacity, {
-            toValue: 0.85,
-            duration: 800,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver,
-          }),
-          Animated.timing(glowScale, {
-            toValue: 1.15,
-            duration: 900,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver,
-          }),
           Animated.timing(loaderOpacity, {
             toValue: 1,
             duration: 450,
@@ -100,24 +86,6 @@ export const SplashScreen: React.FC = () => {
               useNativeDriver,
             }),
           ]).start();
-
-          // Ambient breathing glow loop
-          Animated.loop(
-            Animated.sequence([
-              Animated.timing(glowScale, {
-                toValue: 1.22,
-                duration: 1100,
-                easing: Easing.inOut(Easing.ease),
-                useNativeDriver,
-              }),
-              Animated.timing(glowScale, {
-                toValue: 1.1,
-                duration: 1100,
-                easing: Easing.inOut(Easing.ease),
-                useNativeDriver,
-              }),
-            ])
-          ).start();
         });
       }, 500);
 
@@ -126,8 +94,6 @@ export const SplashScreen: React.FC = () => {
 
     return () => clearTimeout(startTimer);
   }, [
-    glowOpacity,
-    glowScale,
     loaderOpacity,
     logoOpacity,
     logoScale,
@@ -163,22 +129,11 @@ export const SplashScreen: React.FC = () => {
         />
       </View>
 
-      {/* Step 3: Foreground Content (Logo reveal & loading bar) */}
+      {/* Step 3: Foreground Content (Clean Logo reveal & loading bar) */}
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           {/* Centered Logo Reveal */}
           <View style={styles.centerContent}>
-            {/* Ambient Glowing Aura */}
-            <Animated.View
-              style={[
-                styles.glowAura,
-                {
-                  opacity: glowOpacity,
-                  transform: [{ scale: glowScale }],
-                },
-              ]}
-            />
-
             {/* SafeBite Animated Logo */}
             <Animated.View
               style={[
@@ -262,25 +217,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-  glowAura: {
-    position: "absolute",
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: "rgba(8, 95, 45, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(8, 95, 45, 0.12)",
-  },
   logoWrapper: {
-    width: 220,
-    height: 220,
+    width: 245,
+    height: 245,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 2,
   },
   logo: {
-    width: 215,
-    height: 215,
+    width: 240,
+    height: 240,
   },
   taglineWrapper: {
     marginTop: SPACING.lg,
