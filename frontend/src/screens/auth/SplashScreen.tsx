@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
-  Text,
   Image,
   Animated,
   Easing,
@@ -10,7 +9,7 @@ import {
   SafeAreaView,
   useWindowDimensions,
 } from "react-native";
-import { COLORS, TYPOGRAPHY, SPACING } from "../../constants/theme";
+import { COLORS, SPACING } from "../../constants/theme";
 
 const BASE_CIRCLE_SIZE = 100;
 
@@ -21,8 +20,6 @@ export const SplashScreen: React.FC = () => {
   const radialScale = useRef(new Animated.Value(0.001)).current;
   const logoScale = useRef(new Animated.Value(0.65)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const textTranslateY = useRef(new Animated.Value(14)).current;
   const loaderOpacity = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -70,23 +67,7 @@ export const SplashScreen: React.FC = () => {
             easing: Easing.bezier(0.2, 0, 0.2, 1),
             useNativeDriver: false,
           }),
-        ]).start(() => {
-          // Tagline reveals right after logo settles
-          Animated.parallel([
-            Animated.timing(textOpacity, {
-              toValue: 1,
-              duration: 500,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver,
-            }),
-            Animated.timing(textTranslateY, {
-              toValue: 0,
-              duration: 500,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver,
-            }),
-          ]).start();
-        });
+        ]).start();
       }, 500);
 
       return () => clearTimeout(logoTimer);
@@ -100,8 +81,6 @@ export const SplashScreen: React.FC = () => {
     progressAnim,
     radialScale,
     targetRadialScale,
-    textOpacity,
-    textTranslateY,
     useNativeDriver,
   ]);
 
@@ -129,7 +108,7 @@ export const SplashScreen: React.FC = () => {
         />
       </View>
 
-      {/* Step 3: Foreground Content (Clean Logo reveal & loading bar) */}
+      {/* Step 3: Foreground Content (Clean centered logo reveal & loading bar) */}
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           {/* Centered Logo Reveal */}
@@ -149,19 +128,6 @@ export const SplashScreen: React.FC = () => {
                 style={styles.logo}
                 resizeMode="contain"
               />
-            </Animated.View>
-
-            {/* Slogan directly below logo */}
-            <Animated.View
-              style={[
-                styles.taglineWrapper,
-                {
-                  opacity: textOpacity,
-                  transform: [{ translateY: textTranslateY }],
-                },
-              ]}
-            >
-              <Text style={styles.slogan}>Make more informed food choices</Text>
             </Animated.View>
           </View>
 
@@ -227,20 +193,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 240,
     height: 240,
-  },
-  taglineWrapper: {
-    marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.md,
-    alignItems: "center",
-    zIndex: 2,
-  },
-  slogan: {
-    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    lineHeight: TYPOGRAPHY.lineHeight.lg,
-    color: COLORS.textPrimary,
-    textAlign: "center",
-    letterSpacing: 0.2,
   },
   footer: {
     alignItems: "center",
