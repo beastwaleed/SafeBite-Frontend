@@ -13,17 +13,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} bounces={false}>
-        <View style={styles.topSection}>
-          <Image
-            source={require("../../../assets/SafeBite-Logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.brandTitle}>SafeBite</Text>
-          <Text style={styles.tagline}>Food Safety Decision Support</Text>
-        </View>
+        {/* Top/Center Hero: Logo + Headline + Subtext */}
+        <View style={styles.heroSection}>
+          <View style={styles.logoWrapper}>
+            <Image
+              source={require("../../../assets/SafeBite-Logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
 
-        <View style={styles.middleSection}>
           <Text style={styles.headline}>Make more informed food choices</Text>
           <Text style={styles.subtext}>
             Scan packaged food barcodes, review heavy metal evidence reported in Pakistani
@@ -31,6 +30,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
           </Text>
         </View>
 
+        {/* Bottom Actions: Create Account, Sign In, Disclaimer */}
         <View style={styles.bottomSection}>
           <SafeBiteButton
             title="Create account"
@@ -67,31 +67,23 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "space-between",
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xl,
+    paddingTop: SPACING.xxl,
+    paddingBottom: SPACING.lg,
   },
-  topSection: {
+  heroSection: {
     alignItems: "center",
-    marginTop: SPACING.lg,
+    marginTop: SPACING.md,
+  },
+  logoWrapper: {
+    width: 150,
+    height: 150,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: SPACING.lg,
   },
   logo: {
-    width: 80,
-    height: 80,
-    marginBottom: SPACING.xs,
-  },
-  brandTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    color: COLORS.primary,
-  },
-  tagline: {
-    fontFamily: TYPOGRAPHY.fontFamily.primaryMedium,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textSecondary,
-    letterSpacing: 0.5,
-  },
-  middleSection: {
-    alignItems: "center",
-    marginVertical: SPACING.xl,
+    width: 145,
+    height: 145,
   },
   headline: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
@@ -100,6 +92,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     textAlign: "center",
     marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
   },
   subtext: {
     fontFamily: TYPOGRAPHY.fontFamily.primary,
@@ -108,10 +101,12 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: "center",
     paddingHorizontal: SPACING.sm,
+    maxWidth: 340,
   },
   bottomSection: {
     width: "100%",
     alignItems: "center",
+    marginTop: SPACING.xl,
   },
   createButton: {
     marginBottom: SPACING.sm,
@@ -133,4 +128,3 @@ const styles = StyleSheet.create({
 });
 
 export default WelcomeScreen;
-
