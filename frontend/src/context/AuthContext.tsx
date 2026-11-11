@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initializeAuth = async () => {
       const startTime = Date.now();
-      const MIN_SPLASH_TIME = 2800; // 2.8s ensures the animated logo reveal plays smoothly on launch
+      const MIN_SPLASH_TIME = 3100; // 3.1s ensures green background -> radial white -> logo reveal & loading bar completes smoothly
 
       try {
         const storedToken = await secureStorage.getToken();

@@ -8,96 +8,132 @@ import {
   Easing,
   Platform,
   SafeAreaView,
+  useWindowDimensions,
 } from "react-native";
 import { COLORS, TYPOGRAPHY, SPACING } from "../../constants/theme";
 
+const BASE_CIRCLE_SIZE = 100;
+
 export const SplashScreen: React.FC = () => {
-  // Animation values for smooth logo reveal
-  const logoScale = useRef(new Animated.Value(0.68)).current;
+  const { width, height } = useWindowDimensions();
+
+  // Animation values
+  const radialScale = useRef(new Animated.Value(0.001)).current;
+  const logoScale = useRef(new Animated.Value(0.65)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const glowScale = useRef(new Animated.Value(0.75)).current;
   const glowOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslateY = useRef(new Animated.Value(14)).current;
+  const loaderOpacity = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   const useNativeDriver = Platform.OS !== "web";
 
+  // Calculate diagonal distance from center to furthest screen corner
+  const screenDiagonal = Math.hypot(width || 400, height || 850);
+  const targetRadialScale = Math.max(14, (screenDiagonal * 1.35) / BASE_CIRCLE_SIZE);
+
   useEffect(() => {
-    // 1. Reveal Phase: Logo & Ambient Aura expand and fade in
-    Animated.parallel([
-      Animated.timing(logoOpacity, {
-        toValue: 1,
-        duration: 750,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver,
-      }),
-      Animated.spring(logoScale, {
-        toValue: 1,
-        friction: 6,
-        tension: 42,
-        useNativeDriver,
-      }),
-      Animated.timing(glowOpacity, {
-        toValue: 0.85,
+    // 1. Initial brand green pause (350ms)
+    const startTimer = setTimeout(() => {
+      // 2. White circle expands radially outward from center
+      Animated.timing(radialScale, {
+        toValue: targetRadialScale,
         duration: 850,
         easing: Easing.out(Easing.cubic),
         useNativeDriver,
-      }),
-      Animated.timing(glowScale, {
-        toValue: 1.12,
-        duration: 950,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver,
-      }),
-      // Continuous progress line along the bottom
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: 2700,
-        easing: Easing.bezier(0.2, 0.0, 0.2, 1),
-        useNativeDriver: false,
-      }),
-    ]).start(() => {
-      // 2. Tagline floats in smoothly right after the logo settles
-      Animated.parallel([
-        Animated.timing(textOpacity, {
-          toValue: 1,
-          duration: 550,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver,
-        }),
-        Animated.timing(textTranslateY, {
-          toValue: 0,
-          duration: 550,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver,
-        }),
-      ]).start();
+      }).start();
 
-      // 3. Gentle ambient pulsing of the background aura
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowScale, {
-            toValue: 1.22,
-            duration: 1100,
-            easing: Easing.inOut(Easing.ease),
+      // 3. Logo reveal blossoms as radial expansion reaches edges (~500ms in)
+      const logoTimer = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(logoOpacity, {
+            toValue: 1,
+            duration: 700,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver,
+          }),
+          Animated.spring(logoScale, {
+            toValue: 1,
+            friction: 6,
+            tension: 40,
+            useNativeDriver,
+          }),
+          Animated.timing(glowOpacity, {
+            toValue: 0.85,
+            duration: 800,
+            easing: Easing.out(Easing.cubic),
             useNativeDriver,
           }),
           Animated.timing(glowScale, {
-            toValue: 1.1,
-            duration: 1100,
-            easing: Easing.inOut(Easing.ease),
+            toValue: 1.15,
+            duration: 900,
+            easing: Easing.out(Easing.cubic),
             useNativeDriver,
           }),
-        ])
-      ).start();
-    });
+          Animated.timing(loaderOpacity, {
+            toValue: 1,
+            duration: 450,
+            useNativeDriver,
+          }),
+          // 4. Loading bar fills smoothly across the bottom
+          Animated.timing(progressAnim, {
+            toValue: 1,
+            duration: 1650,
+            easing: Easing.bezier(0.2, 0, 0.2, 1),
+            useNativeDriver: false,
+          }),
+        ]).start(() => {
+          // Tagline reveals right after logo settles
+          Animated.parallel([
+            Animated.timing(textOpacity, {
+              toValue: 1,
+              duration: 500,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver,
+            }),
+            Animated.timing(textTranslateY, {
+              toValue: 0,
+              duration: 500,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver,
+            }),
+          ]).start();
+
+          // Ambient breathing glow loop
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(glowScale, {
+                toValue: 1.22,
+                duration: 1100,
+                easing: Easing.inOut(Easing.ease),
+                useNativeDriver,
+              }),
+              Animated.timing(glowScale, {
+                toValue: 1.1,
+                duration: 1100,
+                easing: Easing.inOut(Easing.ease),
+                useNativeDriver,
+              }),
+            ])
+          ).start();
+        });
+      }, 500);
+
+      return () => clearTimeout(logoTimer);
+    }, 350);
+
+    return () => clearTimeout(startTimer);
   }, [
     glowOpacity,
     glowScale,
+    loaderOpacity,
     logoOpacity,
     logoScale,
     progressAnim,
+    radialScale,
+    targetRadialScale,
     textOpacity,
     textTranslateY,
     useNativeDriver,
@@ -109,69 +145,108 @@ export const SplashScreen: React.FC = () => {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Centered Logo Reveal presentation */}
-        <View style={styles.centerContent}>
-          {/* Ambient Glowing Aura */}
-          <Animated.View
-            style={[
-              styles.glowAura,
-              {
-                opacity: glowOpacity,
-                transform: [{ scale: glowScale }],
-              },
-            ]}
-          />
+    <View style={styles.rootContainer}>
+      {/* Step 1: Base Green Canvas */}
 
-          {/* SafeBite Animated Logo */}
-          <Animated.View
-            style={[
-              styles.logoWrapper,
-              {
-                opacity: logoOpacity,
-                transform: [{ scale: logoScale }],
-              },
-            ]}
-          >
-            <Image
-              source={require("../../../assets/SafeBite-Logo.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
-          {/* Slogan directly below logo */}
-          <Animated.View
-            style={[
-              styles.taglineWrapper,
-              {
-                opacity: textOpacity,
-                transform: [{ translateY: textTranslateY }],
-              },
-            ]}
-          >
-            <Text style={styles.slogan}>Make more informed food choices</Text>
-          </Animated.View>
-        </View>
-
-        {/* Minimalist modern progress bar indicator */}
-        <View style={styles.footer}>
-          <View style={styles.progressTrack}>
-            <Animated.View
-              style={[styles.progressFill, { width: progressBarWidth }]}
-            />
-          </View>
-        </View>
+      {/* Step 2: Radial White Expansion from screen center */}
+      <View style={styles.radialContainer} pointerEvents="none">
+        <Animated.View
+          style={[
+            styles.radialCircle,
+            {
+              width: BASE_CIRCLE_SIZE,
+              height: BASE_CIRCLE_SIZE,
+              borderRadius: BASE_CIRCLE_SIZE / 2,
+              transform: [{ scale: radialScale }],
+            },
+          ]}
+        />
       </View>
-    </SafeAreaView>
+
+      {/* Step 3: Foreground Content (Logo reveal & loading bar) */}
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Centered Logo Reveal */}
+          <View style={styles.centerContent}>
+            {/* Ambient Glowing Aura */}
+            <Animated.View
+              style={[
+                styles.glowAura,
+                {
+                  opacity: glowOpacity,
+                  transform: [{ scale: glowScale }],
+                },
+              ]}
+            />
+
+            {/* SafeBite Animated Logo */}
+            <Animated.View
+              style={[
+                styles.logoWrapper,
+                {
+                  opacity: logoOpacity,
+                  transform: [{ scale: logoScale }],
+                },
+              ]}
+            >
+              <Image
+                source={require("../../../assets/SafeBite-Logo.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </Animated.View>
+
+            {/* Slogan directly below logo */}
+            <Animated.View
+              style={[
+                styles.taglineWrapper,
+                {
+                  opacity: textOpacity,
+                  transform: [{ translateY: textTranslateY }],
+                },
+              ]}
+            >
+              <Text style={styles.slogan}>Make more informed food choices</Text>
+            </Animated.View>
+          </View>
+
+          {/* Step 4: Loading Progress Bar */}
+          <Animated.View style={[styles.footer, { opacity: loaderOpacity }]}>
+            <View style={styles.progressTrack}>
+              <Animated.View
+                style={[styles.progressFill, { width: progressBarWidth }]}
+              />
+            </View>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+    backgroundColor: COLORS.primaryDark, // Initial deep brand green
+    overflow: "hidden",
+  },
+  radialContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  radialCircle: {
+    backgroundColor: COLORS.background, // Turns white/light (#F7F9F6) in radial form
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: "transparent",
+    zIndex: 2,
   },
   container: {
     flex: 1,
@@ -227,9 +302,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   progressTrack: {
-    width: 140,
-    height: 3,
-    backgroundColor: "#E1E7E1",
+    width: 160,
+    height: 4,
+    backgroundColor: "#D9E3DA",
     borderRadius: 2,
     overflow: "hidden",
   },
