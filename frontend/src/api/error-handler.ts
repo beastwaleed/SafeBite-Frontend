@@ -18,15 +18,23 @@ export function parseApiError(error: unknown): ParsedApiError {
 
     // Network disconnect or timeout
     if (!axiosError.response) {
+      console.warn("API Network Failure:", {
+        code: axiosError.code,
+        message: axiosError.message,
+        url: axiosError.config?.url,
+      });
+
       if (axiosError.code === "ECONNABORTED" || axiosError.message.includes("timeout")) {
         return {
-          message: "The server took too long to respond. Please check your internet connection.",
+          message:
+            "Request timed out connecting to backend devtunnel. Please check the tunnel connection and tap Retry.",
           isNetworkError: true,
           isSessionExpired: false,
         };
       }
       return {
-        message: "Cannot connect to SafeBite servers. Please verify your internet connection.",
+        message:
+          "Cannot reach SafeBite backend devtunnel (q136wfhl-3000). Please verify the devtunnel is active and tap Retry.",
         isNetworkError: true,
         isSessionExpired: false,
       };
