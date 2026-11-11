@@ -64,15 +64,15 @@ const styles = StyleSheet.create({
     marginTop: -SPACING.xl,
   },
   logoWrapper: {
-    width: 170,
-    height: 170,
+    width: 220,
+    height: 220,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: SPACING.lg,
   },
   logo: {
-    width: 165,
-    height: 165,
+    width: 210,
+    height: 210,
   },
   headline: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryBold,

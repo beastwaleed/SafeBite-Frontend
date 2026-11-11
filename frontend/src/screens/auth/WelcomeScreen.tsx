@@ -75,15 +75,15 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   logoWrapper: {
-    width: 150,
-    height: 150,
+    width: 210,
+    height: 210,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   logo: {
-    width: 145,
-    height: 145,
+    width: 200,
+    height: 200,
   },
   headline: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
