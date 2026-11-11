@@ -1,0 +1,27 @@
+Target frame	Android phone, 393 × 852 px
+Main background	#F7F8F5
+Primary green	#176B4D
+Main text	#202923
+Secondary text	#66716A
+Card background	#FFFFFF
+Border	#E1E7E1
+Warning	Amber, with an icon and text
+Error / concern	Red, with an icon and text
+Corner radius	12–20 px
+Main buttons	48–54 px high
+Typography	Poppins or a similar readable sans-serif
+
+App Navigation:
+Home
+
+
+Scan
+
+
+Ask AI
+
+
+Saved
+
+
+Profile

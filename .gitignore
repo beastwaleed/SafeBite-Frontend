@@ -1,0 +1,50 @@
+# SafeBite-Frontend - Root Git Ignore
+
+# ─── Reference Repositories ──────────────────────────────────────────
+# SafeBite-Backend is cloned as a separate read-only repository.
+# Do not track its files or submodule in the frontend repository.
+SafeBite-Backend/
+Safebite-Backend/
+
+# ─── Environment & Secrets (NEVER COMMIT) ────────────────────────────
+.env
+.env*.local
+*.env
+*.env.local
+!*.env.example
+
+# ─── Dependencies ────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ─── Expo & Build Outputs ────────────────────────────────────────────
+.expo/
+**/.expo/
+dist/
+**/dist/
+web-build/
+**/web-build/
+*.tsbuildinfo
+
+# ─── Native & Generated Outputs ──────────────────────────────────────
+ios/
+android/
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# ─── Logs & Debugging ────────────────────────────────────────────────
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# ─── OS & IDE Metadata ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

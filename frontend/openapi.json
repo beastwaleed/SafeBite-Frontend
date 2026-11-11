@@ -1,0 +1,3299 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SafeBite API",
+    "version": "1.0.0",
+    "description": "AI-Powered Food Safety Intelligence REST API for Pakistani Packaged Foods (SRS v4.1 compliant). Supports native JWT auth (90-day mobile sessions), AWS S3 asset management, and user safety history, favorites, watchlist alerts, and consented health profiles.",
+    "contact": {
+      "name": "SafeBite Engineering Team"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Active Server (Localhost, LAN, VS Code Port Tunnel, or Production)"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Direct Local Development Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "Liveness and PostgreSQL/pgvector readiness probes"
+    },
+    {
+      "name": "Auth",
+      "description": "Native JWT authentication and user profile management"
+    },
+    {
+      "name": "Storage",
+      "description": "AWS S3 image uploads, presigned URLs, and scoped asset management"
+    },
+    {
+      "name": "User Data",
+      "description": "Scan/search history, favorites, watchlist alerts, and consented health profile"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Native JWT Bearer token returned by /api/auth/signup or /api/auth/login (90-day expiry)."
+      }
+    },
+    "parameters": {
+      "ProductIdPathParam": {
+        "name": "productId",
+        "in": "path",
+        "required": true,
+        "description": "UUID of the target product.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "example": "550e8400-e29b-41d4-a716-446655440000"
+      },
+      "HistoryLimitQueryParam": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Maximum number of recent scan and search records each to return (defaults to 20).",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20
+        },
+        "example": 20
+      },
+      "StorageFolderQueryParam": {
+        "name": "folder",
+        "in": "query",
+        "required": false,
+        "description": "Target S3 folder prefix. Non-admin users may only list 'products', 'research', or their own 'users/<userId>' folder.",
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "products": {
+            "summary": "Public product images catalog",
+            "value": "products"
+          },
+          "research": {
+            "summary": "Research assets folder",
+            "value": "research"
+          },
+          "ownUserFolder": {
+            "summary": "Authenticated user's private directory",
+            "value": "users/8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+          }
+        }
+      }
+    },
+    "schemas": {
+      "UserRole": {
+        "type": "string",
+        "enum": [
+          "USER",
+          "ADMIN"
+        ]
+      },
+      "HealthTag": {
+        "type": "string",
+        "enum": [
+          "PREGNANCY",
+          "INFANT",
+          "KIDNEY_ISSUE",
+          "HYPERTENSION",
+          "DIABETES",
+          "CELIAC",
+          "NUT_ALLERGY",
+          "HEART_CONDITION",
+          "ELDERLY",
+          "GENERAL_POPULATION"
+        ]
+      },
+      "StorageFolder": {
+        "type": "string",
+        "enum": [
+          "products",
+          "users",
+          "research"
+        ]
+      },
+      "AllowedMimeType": {
+        "type": "string",
+        "enum": [
+          "image/jpeg",
+          "image/png",
+          "image/webp"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "statusCode"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Invalid email or password"
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 401
+          }
+        }
+      },
+      "ValidationIssue": {
+        "type": "object",
+        "required": [
+          "field",
+          "message"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "fullName"
+          },
+          "message": {
+            "type": "string",
+            "example": "Name cannot contain emojis, numbers, control characters, or invisible formatting characters"
+          }
+        }
+      },
+      "ValidationErrorResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "errors"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Request validation failed"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            }
+          }
+        }
+      },
+      "RateLimitErrorResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Too many requests from this IP address. Please try again later."
+          }
+        }
+      },
+      "MessageOnlyResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "HealthProbeResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "status",
+          "service",
+          "uptime",
+          "timestamp"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "status": {
+            "type": "string",
+            "example": "healthy"
+          },
+          "service": {
+            "type": "string",
+            "example": "safebite-backend"
+          },
+          "uptime": {
+            "type": "number",
+            "example": 142.87
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-11T12:55:00.000Z"
+          }
+        }
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "status",
+          "checks",
+          "timestamp"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "status": {
+            "type": "string",
+            "example": "ready"
+          },
+          "checks": {
+            "type": "object",
+            "required": [
+              "server",
+              "database",
+              "pgvector"
+            ],
+            "properties": {
+              "server": {
+                "type": "string",
+                "example": "healthy"
+              },
+              "database": {
+                "type": "string",
+                "example": "connected (PostgreSQL)"
+              },
+              "pgvector": {
+                "type": "string",
+                "example": "enabled (v0.8.0)"
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-11T12:55:00.000Z"
+          }
+        }
+      },
+      "ReadinessUnavailableResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "status",
+          "error",
+          "timestamp"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "status": {
+            "type": "string",
+            "example": "unhealthy"
+          },
+          "error": {
+            "type": "string",
+            "example": "Can't reach database server at localhost:5432"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-11T12:55:00.000Z"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role",
+          "healthConsent",
+          "healthTags",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ayesha.khan@example.com"
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Ayesha Khan"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "healthConsent": {
+            "type": "boolean",
+            "example": true
+          },
+          "consentDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-11T10:15:30.000Z"
+          },
+          "healthTags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HealthTag"
+            },
+            "example": [
+              "PREGNANCY"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-10T09:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-11T10:15:30.000Z"
+          }
+        }
+      },
+      "SignUpRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ayesha.khan@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 72,
+            "example": "SafeBite#2026"
+          },
+          "fullName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 70,
+            "description": "Alphabetic letters across supported scripts with single spaces, hyphens, or apostrophes. Emojis, digits, symbols, and invisible characters are rejected.",
+            "example": "Ayesha Khan"
+          }
+        }
+      },
+      "SignInRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ayesha.khan@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 72,
+            "example": "SafeBite#2026"
+          }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 70,
+            "description": "Alphabetic letters across supported scripts with single spaces, hyphens, or apostrophes. Emojis, digits, symbols, and invisible characters are rejected.",
+            "example": "Ayesha O'Connor"
+          }
+        }
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ayesha.khan@example.com"
+          }
+        }
+      },
+      "AuthSuccessResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Authentication successful"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "user",
+              "token"
+            ],
+            "properties": {
+              "user": {
+                "$ref": "#/components/schemas/UserResponse"
+              },
+              "token": {
+                "type": "string",
+                "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjhmMTRlNDVmLWNlZWEtNDY3YS04ZThiLTlmMWI0YzJkMTEwMSJ9.signature"
+              }
+            }
+          }
+        }
+      },
+      "GetProfileResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "user"
+            ],
+            "properties": {
+              "user": {
+                "$ref": "#/components/schemas/UserResponse"
+              }
+            }
+          }
+        }
+      },
+      "UpdateProfileResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Profile updated successfully"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "user"
+            ],
+            "properties": {
+              "user": {
+                "$ref": "#/components/schemas/UserResponse"
+              }
+            }
+          }
+        }
+      },
+      "SignedUploadRequest": {
+        "type": "object",
+        "required": [
+          "fileName",
+          "mimeType"
+        ],
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "olpers-milk-1l.jpg"
+          },
+          "mimeType": {
+            "$ref": "#/components/schemas/AllowedMimeType"
+          },
+          "folder": {
+            "$ref": "#/components/schemas/StorageFolder",
+            "default": "products"
+          }
+        }
+      },
+      "UploadFileResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "File uploaded successfully"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "key",
+              "bucket",
+              "publicUrl"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "example": "products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg"
+              },
+              "bucket": {
+                "type": "string",
+                "example": "safebite-assets"
+              },
+              "publicUrl": {
+                "type": "string",
+                "format": "uri",
+                "example": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg"
+              }
+            }
+          }
+        }
+      },
+      "PresignedUploadResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "key",
+              "uploadUrl",
+              "publicUrl",
+              "expiresInSeconds"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "example": "products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg"
+              },
+              "uploadUrl": {
+                "type": "string",
+                "format": "uri",
+                "example": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/8c9d1b20.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=900&X-Amz-Signature=example"
+              },
+              "publicUrl": {
+                "type": "string",
+                "format": "uri",
+                "example": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg"
+              },
+              "expiresInSeconds": {
+                "type": "integer",
+                "example": 900
+              }
+            }
+          }
+        }
+      },
+      "SignedUrlRequest": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 255,
+            "example": "products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 86400,
+            "default": 3600,
+            "example": 3600
+          }
+        }
+      },
+      "SignedUrlResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "signedUrl",
+              "expiresIn"
+            ],
+            "properties": {
+              "signedUrl": {
+                "type": "string",
+                "format": "uri",
+                "example": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/8c9d1b20.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600&X-Amz-Signature=example"
+              },
+              "expiresIn": {
+                "type": "integer",
+                "example": 3600
+              }
+            }
+          }
+        }
+      },
+      "StorageFileItem": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "products/olpers.jpg"
+          },
+          "size": {
+            "type": "integer",
+            "example": 84512
+          },
+          "lastModified": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-10T08:30:00.000Z"
+          }
+        }
+      },
+      "StorageFilesListResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StorageFileItem"
+            }
+          }
+        }
+      },
+      "DeleteFilesRequest": {
+        "type": "object",
+        "required": [
+          "paths"
+        ],
+        "properties": {
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "users/8f14e45f-ceea-467a-8e8b-9f1b4c2d1101/avatar.jpg"
+            ]
+          }
+        }
+      },
+      "DeleteFilesResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Files deleted successfully"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "Key": {
+                  "type": "string",
+                  "example": "users/8f14e45f-ceea-467a-8e8b-9f1b4c2d1101/avatar.jpg"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CategoryRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "2b8f6c1a-41b3-4f88-902a-1a2b3c4d5e6f"
+          },
+          "name": {
+            "type": "string",
+            "example": "Packaged Liquid Milk"
+          }
+        }
+      },
+      "ProductSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "brand"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "name": {
+            "type": "string",
+            "example": "Olper's Full Cream Milk 1L"
+          },
+          "brand": {
+            "type": "string",
+            "example": "FrieslandCampina Engro"
+          },
+          "barcode": {
+            "type": "string",
+            "nullable": true,
+            "example": "8964001234567"
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/olpers.jpg"
+          }
+        }
+      },
+      "HistoryProductSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "brand",
+          "category"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "name": {
+            "type": "string",
+            "example": "Olper's Full Cream Milk 1L"
+          },
+          "brand": {
+            "type": "string",
+            "example": "FrieslandCampina Engro"
+          },
+          "barcode": {
+            "type": "string",
+            "nullable": true,
+            "example": "8964001234567"
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/olpers.jpg"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryRef"
+          }
+        }
+      },
+      "ScanHistoryItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "productId",
+          "scannedAt",
+          "product"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "1a2b3c4d-5e6f-4789-abcd-001122334455"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "scannedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-11T12:40:00.000Z"
+          },
+          "product": {
+            "$ref": "#/components/schemas/HistoryProductSummary"
+          }
+        }
+      },
+      "SearchHistoryItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "query",
+          "searchedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9f8e7d6c-5b4a-4321-fedc-998877665544"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+          },
+          "query": {
+            "type": "string",
+            "example": "Olper's Milk"
+          },
+          "searchedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-11T12:35:00.000Z"
+          }
+        }
+      },
+      "HistoryListResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "scans",
+              "searches"
+            ],
+            "properties": {
+              "scans": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ScanHistoryItem"
+                }
+              },
+              "searches": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SearchHistoryItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "RecordScanRequest": {
+        "type": "object",
+        "required": [
+          "productId"
+        ],
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        }
+      },
+      "RecordScanResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Product scan recorded in history"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "userId",
+              "productId",
+              "scannedAt",
+              "product"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "1a2b3c4d-5e6f-4789-abcd-001122334455"
+              },
+              "userId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+              },
+              "productId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "550e8400-e29b-41d4-a716-446655440000"
+              },
+              "scannedAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-11-11T12:40:00.000Z"
+              },
+              "product": {
+                "$ref": "#/components/schemas/ProductSummary"
+              }
+            }
+          }
+        }
+      },
+      "RecordSearchRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "example": "Olper's Milk"
+          }
+        }
+      },
+      "RecordSearchResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Search query recorded in history"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SearchHistoryItem"
+          }
+        }
+      },
+      "FavoriteListItem": {
+        "type": "object",
+        "required": [
+          "favoriteId",
+          "savedAt",
+          "product"
+        ],
+        "properties": {
+          "favoriteId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-11T12:20:00.000Z"
+          },
+          "product": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "brand",
+              "category"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "550e8400-e29b-41d4-a716-446655440000"
+              },
+              "name": {
+                "type": "string",
+                "example": "Olper's Full Cream Milk 1L"
+              },
+              "brand": {
+                "type": "string",
+                "example": "FrieslandCampina Engro"
+              },
+              "barcode": {
+                "type": "string",
+                "nullable": true,
+                "example": "8964001234567"
+              },
+              "category": {
+                "type": "string",
+                "example": "Packaged Liquid Milk"
+              },
+              "imageUrl": {
+                "type": "string",
+                "nullable": true,
+                "example": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/olpers.jpg"
+              },
+              "grade": {
+                "type": "string",
+                "nullable": true,
+                "example": "A"
+              },
+              "cci": {
+                "type": "number",
+                "nullable": true,
+                "example": 0.18
+              },
+              "statusText": {
+                "type": "string",
+                "nullable": true,
+                "example": "Below Limit"
+              }
+            }
+          }
+        }
+      },
+      "FavoritesListResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FavoriteListItem"
+            }
+          }
+        }
+      },
+      "AddFavoriteResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Product added to favorites"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "userId",
+              "productId",
+              "createdAt",
+              "product"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+              },
+              "userId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+              },
+              "productId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "550e8400-e29b-41d4-a716-446655440000"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-11-11T12:20:00.000Z"
+              },
+              "product": {
+                "$ref": "#/components/schemas/ProductSummary"
+              }
+            }
+          }
+        }
+      },
+      "WatchlistListItem": {
+        "type": "object",
+        "required": [
+          "watchlistId",
+          "savedAt",
+          "lastKnownGrade",
+          "currentGrade",
+          "hasAssessmentChanged",
+          "product"
+        ],
+        "properties": {
+          "watchlistId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-09T14:10:00.000Z"
+          },
+          "lastKnownGrade": {
+            "type": "string",
+            "nullable": true,
+            "example": "B"
+          },
+          "currentGrade": {
+            "type": "string",
+            "nullable": true,
+            "example": "C"
+          },
+          "hasAssessmentChanged": {
+            "type": "boolean",
+            "example": true
+          },
+          "product": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "brand",
+              "category"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "661f9511-f3ac-52e5-b827-557766551111"
+              },
+              "name": {
+                "type": "string",
+                "example": "Chilli Garlic Sauce"
+              },
+              "brand": {
+                "type": "string",
+                "example": "Mitchell's"
+              },
+              "barcode": {
+                "type": "string",
+                "nullable": true,
+                "example": "8961001122334"
+              },
+              "category": {
+                "type": "string",
+                "example": "Processed Fruit & Sauces"
+              },
+              "imageUrl": {
+                "type": "string",
+                "nullable": true,
+                "example": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/mitchells-sauce.jpg"
+              },
+              "cci": {
+                "type": "number",
+                "nullable": true,
+                "example": 0.72
+              },
+              "statusText": {
+                "type": "string",
+                "nullable": true,
+                "example": "Close to Limit"
+              }
+            }
+          }
+        }
+      },
+      "WatchlistListResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WatchlistListItem"
+            }
+          }
+        }
+      },
+      "AddWatchlistResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Product added to watchlist"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "userId",
+              "productId",
+              "lastKnownGrade",
+              "createdAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+              },
+              "userId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+              },
+              "productId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "661f9511-f3ac-52e5-b827-557766551111"
+              },
+              "lastKnownGrade": {
+                "type": "string",
+                "nullable": true,
+                "example": "B"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-11-11T12:45:00.000Z"
+              }
+            }
+          }
+        }
+      },
+      "HealthProfileSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "healthConsent",
+          "healthTags"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+          },
+          "healthConsent": {
+            "type": "boolean",
+            "example": true
+          },
+          "consentDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-11T10:15:30.000Z"
+          },
+          "healthTags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HealthTag"
+            },
+            "example": [
+              "PREGNANCY",
+              "INFANT"
+            ]
+          }
+        }
+      },
+      "HealthProfileEnvelopeResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/HealthProfileSummary"
+          }
+        }
+      },
+      "HealthProfileMutationResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Health tags updated successfully"
+          },
+          "data": {
+            "$ref": "#/components/schemas/HealthProfileSummary"
+          }
+        }
+      },
+      "ClearHealthProfileResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Health tags deleted and consent revoked successfully."
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "healthConsent",
+              "healthTags"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101"
+              },
+              "healthConsent": {
+                "type": "boolean",
+                "example": false
+              },
+              "healthTags": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HealthTag"
+                },
+                "example": []
+              }
+            }
+          }
+        }
+      },
+      "HealthConsentRequest": {
+        "type": "object",
+        "required": [
+          "consent"
+        ],
+        "properties": {
+          "consent": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "HealthTagsRequest": {
+        "type": "object",
+        "required": [
+          "tags"
+        ],
+        "properties": {
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/HealthTag"
+            },
+            "example": [
+              "PREGNANCY",
+              "INFANT"
+            ]
+          }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Request payload, query, or route parameter failed validation.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ValidationErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Request validation failed",
+              "errors": [
+                {
+                  "field": "fullName",
+                  "message": "Name cannot contain emojis, numbers, control characters, or invisible formatting characters"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Missing, malformed, invalid, or expired Bearer JWT token or invalid credentials.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Authentication token missing or invalid format (Bearer token expected)",
+              "statusCode": 401
+            }
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "Authenticated user lacks permission or required consent for this operation.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Forbidden: You do not have permission to access private storage keys outside your account",
+              "statusCode": 403
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Requested resource does not exist.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Product not found",
+              "statusCode": 404
+            }
+          }
+        }
+      },
+      "ConflictError": {
+        "description": "Resource conflict (e.g., email already registered).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "An account with this email already exists",
+              "statusCode": 409
+            }
+          }
+        }
+      },
+      "AuthRateLimitedError": {
+        "description": "Too many authentication requests from this IP address within the 15-minute auth limiter window.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RateLimitErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Too many authentication attempts. Please try again after 15 minutes."
+            }
+          }
+        }
+      },
+      "RateLimitedError": {
+        "description": "Too many API requests from this IP address within the rate-limit window.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RateLimitErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "message": "Too many requests from this IP address. Please try again later."
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": [
+          "System"
+        ],
+        "summary": "Liveness probe",
+        "description": "Verifies the Node.js/Express API process is up and responsive.",
+        "responses": {
+          "200": {
+            "description": "Service is healthy and running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthProbeResponse"
+                },
+                "example": {
+                  "success": true,
+                  "status": "healthy",
+                  "service": "safebite-backend",
+                  "uptime": 142.87,
+                  "timestamp": "2026-11-11T12:55:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "tags": [
+          "System"
+        ],
+        "summary": "Readiness probe",
+        "description": "Checks connectivity to PostgreSQL and verifies the pgvector extension is installed.",
+        "responses": {
+          "200": {
+            "description": "Service, PostgreSQL, and pgvector are ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                },
+                "example": {
+                  "success": true,
+                  "status": "ready",
+                  "checks": {
+                    "server": "healthy",
+                    "database": "connected (PostgreSQL)",
+                    "pgvector": "enabled (v0.8.0)"
+                  },
+                  "timestamp": "2026-11-11T12:55:00.000Z"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessUnavailableResponse"
+                },
+                "example": {
+                  "success": false,
+                  "status": "unhealthy",
+                  "error": "Can't reach database server at localhost:5432",
+                  "timestamp": "2026-11-11T12:55:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/signup": {
+      "post": {
+        "operationId": "signUp",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a new user account",
+        "description": "Creates a user with bcrypt (12 salt rounds), validates fullName under the strict Unicode letter policy, and returns a 90-day JWT Bearer token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignUpRequest"
+              },
+              "examples": {
+                "standard": {
+                  "summary": "Standard registration",
+                  "value": {
+                    "email": "ayesha.khan@example.com",
+                    "password": "SafeBite#2026",
+                    "fullName": "Ayesha Khan"
+                  }
+                },
+                "unicodeName": {
+                  "summary": "Supported international name (Urdu/Arabic/Latin)",
+                  "value": {
+                    "email": "ali@example.com",
+                    "password": "SafeBite#2026",
+                    "fullName": "محمد علی"
+                  }
+                },
+                "minimal": {
+                  "summary": "Without optional fullName",
+                  "value": {
+                    "email": "new.user@example.com",
+                    "password": "SafeBite#2026"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully with 90-day JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSuccessResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "User registered successfully",
+                  "data": {
+                    "user": {
+                      "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                      "email": "ayesha.khan@example.com",
+                      "fullName": "Ayesha Khan",
+                      "role": "USER",
+                      "healthConsent": false,
+                      "healthTags": [],
+                      "createdAt": "2026-11-11T12:55:00.000Z"
+                    },
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjhmMTRlNDVmLWNlZWEtNDY3YS04ZThiLTlmMWI0YzJkMTEwMSJ9.example_signature"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ConflictError"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "signIn",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Authenticate user and receive 90-day JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInRequest"
+              },
+              "example": {
+                "email": "ayesha.khan@example.com",
+                "password": "SafeBite#2026"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSuccessResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Authentication successful",
+                  "data": {
+                    "user": {
+                      "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                      "email": "ayesha.khan@example.com",
+                      "fullName": "Ayesha Khan",
+                      "role": "USER",
+                      "healthConsent": true,
+                      "healthTags": [
+                        "PREGNANCY"
+                      ],
+                      "createdAt": "2026-11-10T09:00:00.000Z"
+                    },
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjhmMTRlNDVmLWNlZWEtNDY3YS04ZThiLTlmMWI0YzJkMTEwMSJ9.example_signature"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Invalid email or password",
+                  "statusCode": 401
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "operationId": "forgotPassword",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Initiate password reset workflow",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              },
+              "example": {
+                "email": "ayesha.khan@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generic acknowledgement returned without leaking account existence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOnlyResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "If an account exists with that email, instructions have been sent."
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/auth/profile": {
+      "get": {
+        "operationId": "getProfile",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current authenticated user profile",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authenticated user profile details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetProfileResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "user": {
+                      "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                      "email": "ayesha.khan@example.com",
+                      "fullName": "Ayesha Khan",
+                      "role": "USER",
+                      "healthConsent": true,
+                      "consentDate": "2026-11-11T10:15:30.000Z",
+                      "healthTags": [
+                        "PREGNANCY"
+                      ],
+                      "createdAt": "2026-11-10T09:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "description": "User profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "User profile not found",
+                  "statusCode": 404
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateProfile",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Update authenticated user profile",
+        "description": "Updates mutable profile fields using the same strict Unicode name validation policy enforced at signup.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              },
+              "examples": {
+                "hyphenatedOrApostrophe": {
+                  "summary": "Approved punctuation in name",
+                  "value": {
+                    "fullName": "Ayesha O'Connor-Ali"
+                  }
+                },
+                "unicodeScript": {
+                  "summary": "Urdu script name",
+                  "value": {
+                    "fullName": "عائشہ خان"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateProfileResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Profile updated successfully",
+                  "data": {
+                    "user": {
+                      "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                      "email": "ayesha.khan@example.com",
+                      "fullName": "Ayesha O'Connor-Ali",
+                      "role": "USER",
+                      "healthConsent": true,
+                      "consentDate": "2026-11-11T10:15:30.000Z",
+                      "healthTags": [
+                        "PREGNANCY"
+                      ],
+                      "createdAt": "2026-11-10T09:00:00.000Z",
+                      "updatedAt": "2026-11-11T12:58:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "signOut",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Acknowledge user logout",
+        "description": "Stateless JWT logout acknowledgement; client discards its stored token.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Signed out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOnlyResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Signed out successfully"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/storage/upload": {
+      "post": {
+        "operationId": "uploadFile",
+        "tags": [
+          "Storage"
+        ],
+        "summary": "Upload an image directly through server buffer to AWS S3",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPEG, PNG, or WebP image (max 10MB)"
+                  },
+                  "folder": {
+                    "$ref": "#/components/schemas/StorageFolder",
+                    "default": "products"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "File uploaded successfully to S3",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadFileResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "File uploaded successfully",
+                  "data": {
+                    "key": "products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg",
+                    "bucket": "safebite-assets",
+                    "publicUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No file uploaded, invalid file extension/MIME type, oversized file (>10MB), or invalid folder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalidType": {
+                    "summary": "Disallowed MIME type / extension",
+                    "value": {
+                      "success": false,
+                      "message": "Invalid file type. Only JPEG, PNG, and WebP images are permitted (received: image/svg+xml).",
+                      "statusCode": 400
+                    }
+                  },
+                  "missingFile": {
+                    "summary": "Missing file field",
+                    "value": {
+                      "success": false,
+                      "message": "No file uploaded. Key 'file' is required.",
+                      "statusCode": 400
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/storage/signed-upload": {
+      "post": {
+        "operationId": "getPresignedUploadUrl",
+        "tags": [
+          "Storage"
+        ],
+        "summary": "Request a presigned PUT upload URL for direct mobile-to-S3 upload",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignedUploadRequest"
+              },
+              "examples": {
+                "productPhoto": {
+                  "summary": "Upload product photo to products folder",
+                  "value": {
+                    "fileName": "olpers-milk-1l.jpg",
+                    "mimeType": "image/jpeg",
+                    "folder": "products"
+                  }
+                },
+                "userAvatar": {
+                  "summary": "Upload avatar photo to users folder",
+                  "value": {
+                    "fileName": "profile-avatar.webp",
+                    "mimeType": "image/webp",
+                    "folder": "users"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Presigned S3 upload URL returned (15-minute expiry)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresignedUploadResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "key": "products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg",
+                    "uploadUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/8c9d1b20.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=900&X-Amz-Signature=example",
+                    "publicUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg",
+                    "expiresInSeconds": 900
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/storage/signed-url": {
+      "post": {
+        "operationId": "createSignedUrl",
+        "tags": [
+          "Storage"
+        ],
+        "summary": "Generate a presigned download URL for an S3 object",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignedUrlRequest"
+              },
+              "example": {
+                "path": "products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg",
+                "expiresIn": 3600
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed download URL returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUrlResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "signedUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/8c9d1b20-1234-4a5b-9c8d-112233445566.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600&X-Amz-Signature=example",
+                    "expiresIn": 3600
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/storage/files": {
+      "get": {
+        "operationId": "listFiles",
+        "tags": [
+          "Storage"
+        ],
+        "summary": "List files within permitted S3 folder",
+        "description": "Non-admin users may only list 'products', 'research', or their own 'users/<userId>' directory.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StorageFolderQueryParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of S3 objects in folder",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageFilesListResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "key": "products/olpers-milk-1l.jpg",
+                      "size": 84512,
+                      "lastModified": "2026-11-10T08:30:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Attempted to list a restricted directory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Forbidden: File listing is restricted to public catalogs or your own user directory",
+                  "statusCode": 403
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFiles",
+        "tags": [
+          "Storage"
+        ],
+        "summary": "Delete files from S3 storage (user-scoped or Admin)",
+        "description": "Non-admin users can only delete keys under their own 'users/<userId>/' directory.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteFilesRequest"
+              },
+              "example": {
+                "paths": [
+                  "users/8f14e45f-ceea-467a-8e8b-9f1b4c2d1101/avatar.jpg"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Files deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteFilesResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Files deleted successfully",
+                  "data": [
+                    {
+                      "Key": "users/8f14e45f-ceea-467a-8e8b-9f1b4c2d1101/avatar.jpg"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Attempted to delete another user's or catalog object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Forbidden: You do not have permission to delete storage object 'products/olpers.jpg'",
+                  "statusCode": 403
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/history": {
+      "get": {
+        "operationId": "getHistory",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Get user scan and search history (FR-12)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HistoryLimitQueryParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User scan and search history retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryListResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "scans": [
+                      {
+                        "id": "1a2b3c4d-5e6f-4789-abcd-001122334455",
+                        "userId": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                        "productId": "550e8400-e29b-41d4-a716-446655440000",
+                        "scannedAt": "2026-11-11T12:40:00.000Z",
+                        "product": {
+                          "id": "550e8400-e29b-41d4-a716-446655440000",
+                          "name": "Olper's Full Cream Milk 1L",
+                          "brand": "FrieslandCampina Engro",
+                          "barcode": "8964001234567",
+                          "imageUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/olpers.jpg",
+                          "category": {
+                            "id": "2b8f6c1a-41b3-4f88-902a-1a2b3c4d5e6f",
+                            "name": "Packaged Liquid Milk"
+                          }
+                        }
+                      }
+                    ],
+                    "searches": [
+                      {
+                        "id": "9f8e7d6c-5b4a-4321-fedc-998877665544",
+                        "userId": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                        "query": "Olper's Milk",
+                        "searchedAt": "2026-11-11T12:35:00.000Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearHistory",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Complete scan & search history wipe (NFR-PR-02)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All scan and search history deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOnlyResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "User scan and search history wiped completely."
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/history/scan": {
+      "post": {
+        "operationId": "recordScan",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Record a product barcode scan in history (FR-12-02)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordScanRequest"
+              },
+              "example": {
+                "productId": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product scan recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordScanResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Product scan recorded in history",
+                  "data": {
+                    "id": "1a2b3c4d-5e6f-4789-abcd-001122334455",
+                    "userId": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                    "productId": "550e8400-e29b-41d4-a716-446655440000",
+                    "scannedAt": "2026-11-11T12:40:00.000Z",
+                    "product": {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "name": "Olper's Full Cream Milk 1L",
+                      "brand": "FrieslandCampina Engro",
+                      "barcode": "8964001234567",
+                      "imageUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/olpers.jpg"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/history/search": {
+      "post": {
+        "operationId": "recordSearch",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Record a text search query in history (FR-12-01)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordSearchRequest"
+              },
+              "example": {
+                "query": "Olper's Milk"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Search query recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordSearchResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Search query recorded in history",
+                  "data": {
+                    "id": "9f8e7d6c-5b4a-4321-fedc-998877665544",
+                    "userId": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                    "query": "Olper's Milk",
+                    "searchedAt": "2026-11-11T12:35:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/favorites": {
+      "get": {
+        "operationId": "getFavorites",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "List user favorite products (FR-13-03)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Favorites retrieved with latest safety grade snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoritesListResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "favoriteId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                      "savedAt": "2026-11-11T12:20:00.000Z",
+                      "product": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "name": "Olper's Full Cream Milk 1L",
+                        "brand": "FrieslandCampina Engro",
+                        "barcode": "8964001234567",
+                        "category": "Packaged Liquid Milk",
+                        "imageUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/olpers.jpg",
+                        "grade": "A",
+                        "cci": 0.18,
+                        "statusText": "Below Limit"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/favorites/{productId}": {
+      "post": {
+        "operationId": "addFavorite",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Add product to favorites (FR-13-01)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProductIdPathParam"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Product added to favorites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddFavoriteResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Product added to favorites",
+                  "data": {
+                    "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                    "userId": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                    "productId": "550e8400-e29b-41d4-a716-446655440000",
+                    "createdAt": "2026-11-11T12:20:00.000Z",
+                    "product": {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "name": "Olper's Full Cream Milk 1L",
+                      "brand": "FrieslandCampina Engro",
+                      "barcode": "8964001234567",
+                      "imageUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/olpers.jpg"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeFavorite",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Remove product from favorites (FR-13-05)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProductIdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product removed from favorites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOnlyResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Product removed from favorites"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "description": "Favorite record not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Product was not in favorites",
+                  "statusCode": 404
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/watchlist": {
+      "get": {
+        "operationId": "getWatchlist",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "List user watchlist with grade change alerts (FR-13-07)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Watchlist items retrieved with assessment-change detection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistListResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "watchlistId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                      "savedAt": "2026-11-09T14:10:00.000Z",
+                      "lastKnownGrade": "B",
+                      "currentGrade": "C",
+                      "hasAssessmentChanged": true,
+                      "product": {
+                        "id": "661f9511-f3ac-52e5-b827-557766551111",
+                        "name": "Chilli Garlic Sauce",
+                        "brand": "Mitchell's",
+                        "barcode": "8961001122334",
+                        "category": "Processed Fruit & Sauces",
+                        "imageUrl": "https://safebite-assets.s3.us-east-1.amazonaws.com/products/mitchells-sauce.jpg",
+                        "cci": 0.72,
+                        "statusText": "Close to Limit"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/watchlist/{productId}": {
+      "post": {
+        "operationId": "addToWatchlist",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Add product to watchlist (FR-13-02)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProductIdPathParam"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Product added to watchlist with current grade snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddWatchlistResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Product added to watchlist",
+                  "data": {
+                    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "userId": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                    "productId": "661f9511-f3ac-52e5-b827-557766551111",
+                    "lastKnownGrade": "B",
+                    "createdAt": "2026-11-11T12:45:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeFromWatchlist",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Remove product from watchlist (FR-13-06)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProductIdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product removed from watchlist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOnlyResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Product removed from watchlist"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "description": "Watchlist record not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Product was not in watchlist",
+                  "statusCode": 404
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/health-profile": {
+      "get": {
+        "operationId": "getHealthProfile",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Get health profile and consented tags (FR-16-01)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Health profile retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthProfileEnvelopeResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                    "healthConsent": true,
+                    "consentDate": "2026-11-11T10:15:30.000Z",
+                    "healthTags": [
+                      "PREGNANCY",
+                      "INFANT"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "User not found",
+                  "statusCode": 404
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearHealthProfile",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Revoke consent and delete health tags (FR-16-02)",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consent revoked and tags cleared",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClearHealthProfileResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Health tags deleted and consent revoked successfully.",
+                  "data": {
+                    "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                    "healthConsent": false,
+                    "healthTags": []
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/health-profile/consent": {
+      "put": {
+        "operationId": "setHealthConsent",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Update explicit health consent state (FR-16-02)",
+        "description": "Setting consent to false automatically clears saved healthTags.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthConsentRequest"
+              },
+              "examples": {
+                "grantConsent": {
+                  "summary": "Grant explicit health data consent",
+                  "value": {
+                    "consent": true
+                  }
+                },
+                "revokeConsent": {
+                  "summary": "Revoke consent (clears saved tags)",
+                  "value": {
+                    "consent": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Health consent updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthProfileMutationResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Health consent updated to true",
+                  "data": {
+                    "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                    "healthConsent": true,
+                    "consentDate": "2026-11-11T10:15:30.000Z",
+                    "healthTags": []
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/user/health-profile/tags": {
+      "put": {
+        "operationId": "updateHealthTags",
+        "tags": [
+          "User Data"
+        ],
+        "summary": "Update consented health-context tags (FR-16-01)",
+        "description": "Requires explicit healthConsent=true beforehand; otherwise returns 403 Forbidden.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthTagsRequest"
+              },
+              "example": {
+                "tags": [
+                  "PREGNANCY",
+                  "INFANT"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Health tags updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthProfileMutationResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Health tags updated successfully",
+                  "data": {
+                    "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                    "healthConsent": true,
+                    "consentDate": "2026-11-11T10:15:30.000Z",
+                    "healthTags": [
+                      "PREGNANCY",
+                      "INFANT"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Forbidden without prior explicit health consent (FR-16-02)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Cannot record health-context tags without explicit user consent (FR-16-02).",
+                  "statusCode": 403
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "User not found",
+                  "statusCode": 404
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    }
+  }
+}

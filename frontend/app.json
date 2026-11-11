@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "SafeBite",
+    "slug": "safebite",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/SafeBite-Logo.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F9F6",
+        "foregroundImage": "./assets/SafeBite-Logo.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/SafeBite-Logo.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font"
+    ]
+  }
+}
