@@ -61,9 +61,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setOnUnauthorizedCallback(handleSessionExpired);
 
     const initializeAuth = async () => {
+      const startTime = Date.now();
+      const MIN_SPLASH_TIME = 2200; // 2.2s minimum ensures splash screen displays smoothly
+
       try {
         const storedToken = await secureStorage.getToken();
         if (!storedToken) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed < MIN_SPLASH_TIME) {
+            await new Promise((resolve) => setTimeout(resolve, MIN_SPLASH_TIME - elapsed));
+          }
           setIsLoading(false);
           return;
         }
@@ -98,6 +105,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } catch (error) {
         console.warn("Auth initialization error:", error);
       } finally {
+        const elapsed = Date.now() - startTime;
+        if (elapsed < MIN_SPLASH_TIME) {
+          await new Promise((resolve) => setTimeout(resolve, MIN_SPLASH_TIME - elapsed));
+        }
         setIsLoading(false);
       }
     };

@@ -212,9 +212,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   logo: {
-    width: 64,
-    height: 64,
-    marginBottom: SPACING.xs,
+    width: 130,
+    height: 130,
+    marginBottom: SPACING.sm,
   },
   title: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
