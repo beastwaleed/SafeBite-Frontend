@@ -344,6 +344,7 @@
           "id",
           "email",
           "role",
+          "emailVerified",
           "healthConsent",
           "healthTags",
           "createdAt"
@@ -366,6 +367,16 @@
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
+          },
+          "emailVerified": {
+            "type": "boolean",
+            "example": true
+          },
+          "emailVerifiedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-12T07:30:00.000Z"
           },
           "healthConsent": {
             "type": "boolean",
@@ -395,6 +406,165 @@
             "type": "string",
             "format": "date-time",
             "example": "2026-11-11T10:15:30.000Z"
+          }
+        }
+      },
+      "ValidateEmailRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "example": "ayesha.khan@gmail.com"
+          }
+        }
+      },
+      "ValidateEmailResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "valid",
+              "normalizedEmail",
+              "checks"
+            ],
+            "properties": {
+              "valid": {
+                "type": "boolean",
+                "example": true
+              },
+              "normalizedEmail": {
+                "type": "string",
+                "example": "ayesha.khan@gmail.com"
+              },
+              "checks": {
+                "type": "object",
+                "required": [
+                  "syntax",
+                  "noInvalidChars",
+                  "notDisposable",
+                  "noKnownTypo",
+                  "domainResolvable"
+                ],
+                "properties": {
+                  "syntax": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "noInvalidChars": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "notDisposable": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "noKnownTypo": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "domainResolvable": {
+                    "type": "boolean",
+                    "nullable": true,
+                    "description": "Whether DNS MX/A lookup confirmed the domain can receive mail (null if DNS check timed out or was inconclusive).",
+                    "example": true
+                  }
+                }
+              },
+              "suggestion": {
+                "type": "string",
+                "example": "ayesha.khan@gmail.com"
+              },
+              "message": {
+                "type": "string",
+                "example": "Domain 'gmial.com' looks like a typo. Did you mean 'ayesha.khan@gmail.com'?"
+              }
+            }
+          }
+        }
+      },
+      "SignUpPendingResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Account created. Please check your email for the 6-digit verification code."
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "user",
+              "requiresEmailVerification",
+              "expiresInMinutes"
+            ],
+            "properties": {
+              "user": {
+                "$ref": "#/components/schemas/UserResponse"
+              },
+              "requiresEmailVerification": {
+                "type": "boolean",
+                "example": true
+              },
+              "expiresInMinutes": {
+                "type": "integer",
+                "example": 15
+              }
+            }
+          }
+        }
+      },
+      "VerifyEmailRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "otp"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ayesha.khan@gmail.com"
+          },
+          "otp": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "minLength": 6,
+            "maxLength": 6,
+            "example": "482913"
+          }
+        }
+      },
+      "ResendVerificationRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ayesha.khan@gmail.com"
           }
         }
       },
@@ -457,7 +627,7 @@
           }
         }
       },
-      "ResetPasswordRequest": {
+      "ForgotPasswordRequest": {
         "type": "object",
         "required": [
           "email"
@@ -467,6 +637,86 @@
             "type": "string",
             "format": "email",
             "example": "ayesha.khan@example.com"
+          }
+        }
+      },
+      "VerifyResetOtpRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "otp"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ayesha.khan@example.com"
+          },
+          "otp": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "minLength": 6,
+            "maxLength": 6,
+            "description": "6-digit verification code sent to the user's email address.",
+            "example": "482913"
+          }
+        }
+      },
+      "VerifyResetOtpResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Verification code confirmed."
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "resetToken",
+              "expiresInMinutes"
+            ],
+            "properties": {
+              "resetToken": {
+                "type": "string",
+                "description": "Single-use reset token valid for completing the password change.",
+                "example": "8c3e1b7f2d0a9e4c1b8f5a6d3e2c7b9a1f4e8d2c6b3a9f7e1d4c8b2a6f9e3d1c"
+              },
+              "expiresInMinutes": {
+                "type": "integer",
+                "example": 10
+              }
+            }
+          }
+        }
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "required": [
+          "resetToken",
+          "newPassword"
+        ],
+        "properties": {
+          "resetToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Single-use reset token returned by /api/auth/verify-reset-otp.",
+            "example": "8c3e1b7f2d0a9e4c1b8f5a6d3e2c7b9a1f4e8d2c6b3a9f7e1d4c8b2a6f9e3d1c"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 72,
+            "example": "NewSafeBite#2026"
           }
         }
       },
@@ -1728,14 +1978,104 @@
         }
       }
     },
+    "/api/auth/validate-email": {
+      "post": {
+        "operationId": "validateEmailInput",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify email input format, domain typos, disposability, and DNS MX reachability",
+        "description": "Validates an email field value before signup or form submission without disclosing account existence.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateEmailRequest"
+              },
+              "examples": {
+                "validEmail": {
+                  "summary": "Valid deliverable email",
+                  "value": {
+                    "email": "ayesha.khan@gmail.com"
+                  }
+                },
+                "domainTypo": {
+                  "summary": "Mistyped domain detection",
+                  "value": {
+                    "email": "ayesha.khan@gmial.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email field verification diagnostics returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateEmailResponse"
+                },
+                "examples": {
+                  "valid": {
+                    "summary": "Passed all checks",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "valid": true,
+                        "normalizedEmail": "ayesha.khan@gmail.com",
+                        "checks": {
+                          "syntax": true,
+                          "noInvalidChars": true,
+                          "notDisposable": true,
+                          "noKnownTypo": true,
+                          "domainResolvable": true
+                        }
+                      }
+                    }
+                  },
+                  "typoDetected": {
+                    "summary": "Domain typo suggestion",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "valid": false,
+                        "normalizedEmail": "ayesha.khan@gmial.com",
+                        "checks": {
+                          "syntax": true,
+                          "noInvalidChars": true,
+                          "notDisposable": true,
+                          "noKnownTypo": false,
+                          "domainResolvable": null
+                        },
+                        "suggestion": "ayesha.khan@gmail.com",
+                        "message": "Domain 'gmial.com' looks like a typo. Did you mean 'ayesha.khan@gmail.com'?"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      }
+    },
     "/api/auth/signup": {
       "post": {
         "operationId": "signUp",
         "tags": [
           "Auth"
         ],
-        "summary": "Register a new user account",
-        "description": "Creates a user with bcrypt (12 salt rounds), validates fullName under the strict Unicode letter policy, and returns a 90-day JWT Bearer token.",
+        "summary": "Register a new user account and send confirmation OTP",
+        "description": "Validates strict email format, domain typos, disposable domains, password policy, and Unicode fullName; creates an unverified account (or refreshes a pending unverified account); and sends a 6-digit confirmation OTP via Mailtrap/SMTP.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1773,26 +2113,30 @@
         },
         "responses": {
           "201": {
-            "description": "User registered successfully with 90-day JWT",
+            "description": "Pending account created and 6-digit verification email dispatched",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthSuccessResponse"
+                  "$ref": "#/components/schemas/SignUpPendingResponse"
                 },
                 "example": {
                   "success": true,
-                  "message": "User registered successfully",
+                  "message": "Account created. Please check your email for the 6-digit verification code.",
                   "data": {
                     "user": {
                       "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
                       "email": "ayesha.khan@example.com",
                       "fullName": "Ayesha Khan",
                       "role": "USER",
+                      "emailVerified": false,
+                      "emailVerifiedAt": null,
                       "healthConsent": false,
+                      "consentDate": null,
                       "healthTags": [],
-                      "createdAt": "2026-11-11T12:55:00.000Z"
+                      "createdAt": "2026-11-12T07:30:00.000Z"
                     },
-                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjhmMTRlNDVmLWNlZWEtNDY3YS04ZThiLTlmMWI0YzJkMTEwMSJ9.example_signature"
+                    "requiresEmailVerification": true,
+                    "expiresInMinutes": 15
                   }
                 }
               }
@@ -1806,6 +2150,174 @@
           },
           "429": {
             "$ref": "#/components/responses/AuthRateLimitedError"
+          },
+          "503": {
+            "description": "Email delivery service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Unable to send verification email at this time. Please try again later.",
+                  "statusCode": 503
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "post": {
+        "operationId": "verifyEmailOtp",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Confirm new account email with 6-digit OTP and obtain JWT",
+        "description": "Validates the 6-digit confirmation OTP (maximum 5 failed attempts), marks emailVerified=true, and issues the user's 90-day JWT Bearer token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequest"
+              },
+              "example": {
+                "email": "ayesha.khan@example.com",
+                "otp": "482913"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified and 90-day JWT issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSuccessResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Email verified successfully. Account is now active.",
+                  "data": {
+                    "user": {
+                      "id": "8f14e45f-ceea-467a-8e8b-9f1b4c2d1101",
+                      "email": "ayesha.khan@example.com",
+                      "fullName": "Ayesha Khan",
+                      "role": "USER",
+                      "emailVerified": true,
+                      "emailVerifiedAt": "2026-11-12T07:32:00.000Z",
+                      "healthConsent": false,
+                      "consentDate": null,
+                      "healthTags": [],
+                      "createdAt": "2026-11-12T07:30:00.000Z"
+                    },
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjhmMTRlNDVmLWNlZWEtNDY3YS04ZThiLTlmMWI0YzJkMTEwMSJ9.example_signature"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid/expired OTP, account already verified, lockout reached, or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ValidationErrorResponse"
+                    }
+                  ]
+                },
+                "examples": {
+                  "invalidOtp": {
+                    "summary": "Invalid or expired OTP code",
+                    "value": {
+                      "success": false,
+                      "message": "Invalid or expired verification code.",
+                      "statusCode": 400
+                    }
+                  },
+                  "tooManyAttempts": {
+                    "summary": "OTP locked after 5 failed attempts",
+                    "value": {
+                      "success": false,
+                      "message": "Too many failed verification attempts. Please request a new code.",
+                      "statusCode": 400
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/auth/resend-verification-otp": {
+      "post": {
+        "operationId": "resendVerificationOtp",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Resend 6-digit account confirmation OTP",
+        "description": "Dispatches a new 6-digit confirmation OTP for an unverified account (15-minute expiry, 30-second resend cooldown) without revealing whether an email is registered or already verified.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendVerificationRequest"
+              },
+              "example": {
+                "email": "ayesha.khan@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generic acknowledgement returned without leaking account status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOnlyResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "If an unverified account exists with that email, a 6-digit verification code has been sent."
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          },
+          "503": {
+            "description": "Email delivery service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Unable to send verification email at this time. Please try again later.",
+                  "statusCode": 503
+                }
+              }
+            }
           }
         }
       }
@@ -1816,7 +2328,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Authenticate user and receive 90-day JWT token",
+        "summary": "Authenticate verified user and receive 90-day JWT token",
         "requestBody": {
           "required": true,
           "content": {
@@ -1848,6 +2360,8 @@
                       "email": "ayesha.khan@example.com",
                       "fullName": "Ayesha Khan",
                       "role": "USER",
+                      "emailVerified": true,
+                      "emailVerifiedAt": "2026-11-12T07:32:00.000Z",
                       "healthConsent": true,
                       "healthTags": [
                         "PREGNANCY"
@@ -1878,6 +2392,21 @@
               }
             }
           },
+          "403": {
+            "description": "Email address has not been confirmed yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Email address not verified. Please confirm your account using the 6-digit verification code sent to your email.",
+                  "statusCode": 403
+                }
+              }
+            }
+          },
           "429": {
             "$ref": "#/components/responses/AuthRateLimitedError"
           }
@@ -1890,13 +2419,14 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Initiate password reset workflow",
+        "summary": "Request a 6-digit password reset OTP code",
+        "description": "Step 1 of the 3-screen password reset workflow (Email -> Enter OTP -> New Password). Generates a single-use 6-digit OTP (15-minute expiry, 30-second resend cooldown) and dispatches it via configured Mailtrap/SMTP without leaking whether the email exists.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResetPasswordRequest"
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
               },
               "example": {
                 "email": "ayesha.khan@example.com"
@@ -1914,13 +2444,206 @@
                 },
                 "example": {
                   "success": true,
-                  "message": "If an account exists with that email, instructions have been sent."
+                  "message": "If an account exists with that email, a 6-digit verification code has been sent."
                 }
               }
             }
           },
           "400": {
             "$ref": "#/components/responses/ValidationError"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          },
+          "503": {
+            "description": "Email delivery service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Unable to send verification email at this time. Please try again later.",
+                  "statusCode": 503
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/verify-reset-otp": {
+      "post": {
+        "operationId": "verifyResetOtp",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify 6-digit password reset OTP code",
+        "description": "Step 2 of the password reset workflow. Validates the 6-digit OTP (maximum 5 failed attempts per code) and exchanges it for a short-lived single-use reset token (10-minute expiry).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyResetOtpRequest"
+              },
+              "example": {
+                "email": "ayesha.khan@example.com",
+                "otp": "482913"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified and single-use reset token issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResetOtpResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Verification code confirmed.",
+                  "data": {
+                    "resetToken": "8c3e1b7f2d0a9e4c1b8f5a6d3e2c7b9a1f4e8d2c6b3a9f7e1d4c8b2a6f9e3d1c",
+                    "expiresInMinutes": 10
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request validation failed, OTP is invalid/expired, or maximum verification attempts exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ValidationErrorResponse"
+                    }
+                  ]
+                },
+                "examples": {
+                  "invalidOrExpiredOtp": {
+                    "summary": "Invalid or expired OTP code",
+                    "value": {
+                      "success": false,
+                      "message": "Invalid or expired verification code.",
+                      "statusCode": 400
+                    }
+                  },
+                  "tooManyAttempts": {
+                    "summary": "OTP locked after 5 failed attempts",
+                    "value": {
+                      "success": false,
+                      "message": "Too many failed verification attempts. Please request a new code.",
+                      "statusCode": 400
+                    }
+                  },
+                  "validationError": {
+                    "summary": "Malformed OTP format",
+                    "value": {
+                      "success": false,
+                      "message": "Request validation failed",
+                      "errors": [
+                        {
+                          "field": "otp",
+                          "message": "Verification code must be a 6-digit number"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthRateLimitedError"
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "operationId": "resetPassword",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Complete password reset with verified token",
+        "description": "Step 3 of the password reset workflow. Validates the single-use reset token from /api/auth/verify-reset-otp, updates the bcrypt password hash, consumes the reset session, and revokes all previously issued JWTs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              },
+              "example": {
+                "resetToken": "8c3e1b7f2d0a9e4c1b8f5a6d3e2c7b9a1f4e8d2c6b3a9f7e1d4c8b2a6f9e3d1c",
+                "newPassword": "NewSafeBite#2026"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password updated and existing JWT sessions invalidated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOnlyResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Password reset successfully. Please sign in with your new password."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or reset session is invalid, already used, or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ValidationErrorResponse"
+                    }
+                  ]
+                },
+                "examples": {
+                  "invalidResetSession": {
+                    "summary": "Invalid, used, or expired reset token",
+                    "value": {
+                      "success": false,
+                      "message": "Reset session is invalid or has expired. Please start over.",
+                      "statusCode": 400
+                    }
+                  },
+                  "validationError": {
+                    "summary": "Password policy violation",
+                    "value": {
+                      "success": false,
+                      "message": "Request validation failed",
+                      "errors": [
+                        {
+                          "field": "newPassword",
+                          "message": "Password must be at least 6 characters long"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           },
           "429": {
             "$ref": "#/components/responses/AuthRateLimitedError"
@@ -1956,6 +2679,8 @@
                       "email": "ayesha.khan@example.com",
                       "fullName": "Ayesha Khan",
                       "role": "USER",
+                      "emailVerified": true,
+                      "emailVerifiedAt": "2026-11-12T07:32:00.000Z",
                       "healthConsent": true,
                       "consentDate": "2026-11-11T10:15:30.000Z",
                       "healthTags": [
@@ -2044,6 +2769,8 @@
                       "email": "ayesha.khan@example.com",
                       "fullName": "Ayesha O'Connor-Ali",
                       "role": "USER",
+                      "emailVerified": true,
+                      "emailVerifiedAt": "2026-11-12T07:32:00.000Z",
                       "healthConsent": true,
                       "consentDate": "2026-11-11T10:15:30.000Z",
                       "healthTags": [

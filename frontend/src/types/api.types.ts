@@ -43,10 +43,13 @@ export interface UserProfile {
   email: string;
   fullName: string | null;
   role: "USER" | "ADMIN";
+  emailVerified: boolean;
+  emailVerifiedAt: string | null;
   healthConsent: boolean;
   consentDate: string | null;
   healthTags: HealthTag[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface AuthSuccessData {
@@ -58,6 +61,21 @@ export interface SignUpRequest {
   email: string;
   password: string;
   fullName?: string;
+}
+
+export interface SignUpPendingData {
+  user: UserProfile;
+  requiresEmailVerification: boolean;
+  expiresInMinutes: number;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  otp: string;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
 }
 
 export interface SignInRequest {
@@ -73,3 +91,37 @@ export interface ResetPasswordRequest {
   email: string;
 }
 
+export interface VerifyResetOtpRequest {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyResetOtpResponseData {
+  resetToken: string;
+  expiresInMinutes: number;
+}
+
+export interface ResetPasswordWithTokenRequest {
+  resetToken: string;
+  newPassword: string;
+}
+
+export interface ValidateEmailRequest {
+  email: string;
+}
+
+export interface ValidateEmailChecks {
+  syntax: boolean;
+  noInvalidChars: boolean;
+  notDisposable: boolean;
+  noKnownTypo: boolean;
+  domainResolvable: boolean | null;
+}
+
+export interface ValidateEmailResponseData {
+  valid: boolean;
+  normalizedEmail: string;
+  checks: ValidateEmailChecks;
+  suggestion?: string;
+  message?: string;
+}

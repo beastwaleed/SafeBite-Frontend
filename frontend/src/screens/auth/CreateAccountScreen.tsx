@@ -12,12 +12,13 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { AuthStackParamList } from "../../types/navigation.types";
-import { COLORS, TYPOGRAPHY, SPACING } from "../../constants/theme";
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from "../../constants/theme";
 import { SafeBiteButton } from "../../components/common/SafeBiteButton";
 import { SafeBiteInput } from "../../components/common/SafeBiteInput";
 import { InlineError } from "../../components/feedback/InlineError";
 import { useAuth } from "../../context/AuthContext";
 import { parseApiError } from "../../api/error-handler";
+import { authService } from "../../api/auth.service";
 
 interface CreateAccountScreenProps {
   navigation: NativeStackNavigationProp<AuthStackParamList, "CreateAccount">;
@@ -31,6 +32,7 @@ export const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ naviga
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
 
   // Strict backend name policy validation (GR-S-01)
   const validateFullName = (name: string): string | null => {
@@ -72,6 +74,24 @@ export const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ naviga
     return Object.keys(errors).length === 0;
   };
 
+  // Optional domain typo verification
+  const checkEmailTypo = async (candidateEmail: string) => {
+    if (!candidateEmail.includes("@") || !candidateEmail.includes(".")) {
+      setEmailSuggestion(null);
+      return;
+    }
+    try {
+      const check = await authService.validateEmail(candidateEmail);
+      if (check.suggestion && check.suggestion.toLowerCase() !== candidateEmail.toLowerCase()) {
+        setEmailSuggestion(check.suggestion);
+      } else {
+        setEmailSuggestion(null);
+      }
+    } catch {
+      setEmailSuggestion(null);
+    }
+  };
+
   const handleSignUp = async () => {
     setErrorMessage(null);
     if (!validate()) {
@@ -81,12 +101,19 @@ export const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ naviga
 
     setLoading(true);
     try {
-      await signUp({
-        email: email.trim().toLowerCase(),
+      const cleanEmail = email.trim().toLowerCase();
+      const result = await signUp({
+        email: cleanEmail,
         password,
         fullName: fullName.trim() || undefined,
       });
-      // Auth state update handles transition automatically
+
+      if (result.requiresEmailVerification) {
+        navigation.navigate("VerifyEmail", {
+          email: cleanEmail,
+          fullName: fullName.trim() || undefined,
+        });
+      }
     } catch (error) {
       const parsed = parseApiError(error);
       setErrorMessage(parsed.message);
@@ -163,12 +190,31 @@ export const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ naviga
                 if (fieldErrors.email) {
                   setFieldErrors((prev) => ({ ...prev, email: "" }));
                 }
+                if (emailSuggestion) setEmailSuggestion(null);
               }}
+              onBlur={() => checkEmailTypo(email)}
               keyboardType="email-address"
               autoComplete="email"
               leftIcon="mail-outline"
               error={fieldErrors.email}
             />
+
+            {/* Email Typo Suggestion Pill */}
+            {emailSuggestion && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  setEmail(emailSuggestion);
+                  setEmailSuggestion(null);
+                }}
+                style={styles.suggestionPill}
+              >
+                <Ionicons name="sparkles-outline" size={14} color={COLORS.primary} style={styles.suggestionIcon} />
+                <Text style={styles.suggestionText}>
+                  Did you mean <Text style={styles.suggestionHighlight}>{emailSuggestion}</Text>? Tap to use
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <SafeBiteInput
               label="Password"
@@ -255,6 +301,31 @@ const styles = StyleSheet.create({
   errorBanner: {
     marginBottom: SPACING.md,
   },
+  suggestionPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.surfaceLightGreen,
+    borderWidth: 1,
+    borderColor: COLORS.primaryLight,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
+    marginTop: -SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  suggestionIcon: {
+    marginRight: 6,
+  },
+  suggestionText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primary,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.textPrimary,
+  },
+  suggestionHighlight: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    color: COLORS.primary,
+    textDecorationLine: "underline",
+  },
   signUpButton: {
     marginTop: SPACING.sm,
     marginBottom: SPACING.md,
@@ -278,4 +349,3 @@ const styles = StyleSheet.create({
 });
 
 export default CreateAccountScreen;
-

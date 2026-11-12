@@ -14,6 +14,9 @@ import {
   UserProfile,
   SignInRequest,
   SignUpRequest,
+  SignUpPendingData,
+  VerifyEmailRequest,
+  AuthSuccessData,
   UpdateProfileRequest,
 } from "../types/api.types";
 
@@ -24,7 +27,9 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   authError: string | null;
   signIn: (credentials: SignInRequest) => Promise<void>;
-  signUp: (data: SignUpRequest) => Promise<void>;
+  signUp: (data: SignUpRequest) => Promise<SignUpPendingData>;
+  verifyEmail: (data: VerifyEmailRequest) => Promise<AuthSuccessData>;
+  resendVerificationOtp: (email: string) => Promise<string>;
   signOut: () => Promise<void>;
   updateProfile: (data: UpdateProfileRequest) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -135,19 +140,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   /**
-   * Sign Up
+   * Sign Up (initiates 6-digit email confirmation OTP)
    */
-  const signUp = async (data: SignUpRequest) => {
+  const signUp = async (data: SignUpRequest): Promise<SignUpPendingData> => {
     setAuthError(null);
     try {
       const result = await authService.signUp(data);
+      return result;
+    } catch (error) {
+      const parsed = parseApiError(error);
+      setAuthError(parsed.message);
+      throw error;
+    }
+  };
+
+  /**
+   * Verify Email with 6-digit OTP (obtains JWT and activates account)
+   */
+  const verifyEmail = async (data: VerifyEmailRequest): Promise<AuthSuccessData> => {
+    setAuthError(null);
+    try {
+      const result = await authService.verifyEmail(data);
       setToken(result.token);
       setUser(result.user);
       await secureStorage.setToken(result.token);
       await secureStorage.setUserCache(result.user);
+      return result;
     } catch (error) {
       const parsed = parseApiError(error);
       setAuthError(parsed.message);
+      throw error;
+    }
+  };
+
+  /**
+   * Resend Account Confirmation OTP
+   */
+  const resendVerificationOtp = async (email: string): Promise<string> => {
+    try {
+      return await authService.resendVerificationOtp(email);
+    } catch (error) {
+      const parsed = parseApiError(error);
       throw error;
     }
   };
@@ -212,6 +245,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         authError,
         signIn,
         signUp,
+        verifyEmail,
+        resendVerificationOtp,
         signOut,
         updateProfile,
         refreshProfile,

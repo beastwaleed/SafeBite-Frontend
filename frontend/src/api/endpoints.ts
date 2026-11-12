@@ -4,17 +4,22 @@
  */
 
 export const ENDPOINTS = {
-  // System Health
+  // System Health & Readiness
   HEALTH: "/health",
   READY: "/ready",
 
-  // Authentication & Profile (Ready for integration)
+  // Authentication & Verification
   AUTH: {
+    VALIDATE_EMAIL: "/api/auth/validate-email",
     SIGN_UP: "/api/auth/signup",
+    VERIFY_EMAIL: "/api/auth/verify-email",
+    RESEND_VERIFICATION_OTP: "/api/auth/resend-verification-otp",
     SIGN_IN: "/api/auth/login",
     PROFILE: "/api/auth/profile",
     LOGOUT: "/api/auth/logout",
     FORGOT_PASSWORD: "/api/auth/forgot-password",
+    VERIFY_RESET_OTP: "/api/auth/verify-reset-otp",
+    RESET_PASSWORD: "/api/auth/reset-password",
   },
 
   // User Data (Phase 2 endpoints implemented on backend)
@@ -41,4 +46,3 @@ export const ENDPOINTS = {
 } as const;
 
 export default ENDPOINTS;
-
