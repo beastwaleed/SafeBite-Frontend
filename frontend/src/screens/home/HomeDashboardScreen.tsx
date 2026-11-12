@@ -4,12 +4,13 @@ import {
   View,
   Text,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   TextInput,
   Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { AppTabParamList } from "../../types/navigation.types";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from "../../constants/theme";
@@ -55,8 +56,16 @@ const RECENT_PRODUCTS: SampleProduct[] = [
 ];
 
 export const HomeDashboardScreen: React.FC<HomeDashboardScreenProps> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState("");
   const [isOffline] = useState(false); // Can be toggled or connected to NetInfo
+
+  // Robust top inset calculation to prevent clipping on Android status bars and iOS notches
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === "android" ? (StatusBar.currentHeight || 28) : 0,
+    16
+  );
 
   // Time-based greeting with "Good morning" baseline
   const getGreeting = () => {
@@ -67,9 +76,9 @@ export const HomeDashboardScreen: React.FC<HomeDashboardScreenProps> = ({ naviga
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.screenContainer, { paddingTop: topInset }]}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Top Header Row */}
@@ -263,25 +272,25 @@ export const HomeDashboardScreen: React.FC<HomeDashboardScreenProps> = ({ naviga
           />
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screenContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  container: {
+  scrollContent: {
     paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
+    paddingTop: SPACING.xs,
     paddingBottom: SPACING.xl,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginTop: SPACING.xs,
+    marginTop: 4,
     marginBottom: SPACING.md,
   },
   greetingCol: {

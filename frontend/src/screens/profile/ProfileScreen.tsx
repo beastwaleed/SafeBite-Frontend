@@ -4,39 +4,48 @@ import {
   View,
   Text,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   Modal,
+  Platform,
+  StatusBar,
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from "../../constants/theme";
-import { SafeBiteCard } from "../../components/common/SafeBiteCard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { AppTabParamList } from "../../types/navigation.types";
+import { COLORS, TYPOGRAPHY, SPACING, SHADOWS } from "../../constants/theme";
 import { SafeBiteButton } from "../../components/common/SafeBiteButton";
 import { SafeBiteInput } from "../../components/common/SafeBiteInput";
-import { ConfirmationDialog } from "../../components/feedback/ConfirmationDialog";
 import { InlineError } from "../../components/feedback/InlineError";
 import { useAuth } from "../../context/AuthContext";
 import { parseApiError } from "../../api/error-handler";
-import { ENV } from "../../config/env";
 import { HealthContextScreen } from "./HealthContextScreen";
 
 export const ProfileScreen: React.FC = () => {
-  const { user, signOut, updateProfile } = useAuth();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<BottomTabNavigationProp<AppTabParamList>>();
+  const { user, signOut, updateProfile, refreshProfile } = useAuth();
+
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showHealthModal, setShowHealthModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [infoTitle, setInfoTitle] = useState("");
+  const [infoContent, setInfoContent] = useState("");
+
   const [newName, setNewName] = useState(user?.fullName || "");
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
-  const formattedDate = user?.createdAt
-    ? new Date(user.createdAt).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    : "Recently joined";
+  // Compute safe top inset to prevent header clipping
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === "android" ? (StatusBar.currentHeight || 28) : 0,
+    16
+  );
 
   const handleOpenEdit = () => {
     setNewName(user?.fullName || "");
@@ -46,11 +55,19 @@ export const ProfileScreen: React.FC = () => {
 
   const handleSaveProfile = async () => {
     setEditError(null);
+    if (!newName.trim()) {
+      setEditError("Name cannot be empty");
+      return;
+    }
     if (newName.length > 70) {
       setEditError("Name cannot exceed 70 characters");
       return;
     }
-    if (/[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Cc}\p{Cf}\uFEFF\u200B-\u200F0-9]/u.test(newName)) {
+    if (
+      /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Cc}\p{Cf}\uFEFF\u200B-\u200F0-9]/u.test(
+        newName
+      )
+    ) {
       setEditError("Name cannot contain numbers, emojis, or symbols");
       return;
     }
@@ -59,7 +76,6 @@ export const ProfileScreen: React.FC = () => {
     try {
       await updateProfile({ fullName: newName.trim() });
       setShowEditModal(false);
-      Alert.alert("Success", "Your profile name has been updated.");
     } catch (error) {
       const parsed = parseApiError(error);
       setEditError(parsed.message);
@@ -68,172 +84,325 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
+  const handleRetryLoad = async () => {
+    try {
+      setLoadError(false);
+      await refreshProfile();
+    } catch {
+      setLoadError(true);
+    }
+  };
+
+  const showInfo = (title: string, content: string) => {
+    setInfoTitle(title);
+    setInfoContent(content);
+    setShowInfoModal(true);
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header Title */}
-        <View style={styles.header}>
-          <Text style={styles.screenTitle}>Profile & Settings</Text>
-        </View>
+    <View style={[styles.screenContainer, { paddingTop: topInset }]}>
+      {/* Top Header Bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="arrow-back" size={20} color="#084D25" />
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>Profile & settings</Text>
+        <View style={styles.backButtonPlaceholder} />
+      </View>
 
-        {/* User Card */}
-        <SafeBiteCard style={styles.userCard}>
-          <View style={styles.avatarRow}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={32} color={COLORS.primary} />
+      {/* Offline / Error State (Page 64 / Screen 17.2) */}
+      {loadError ? (
+        <View style={styles.errorContainer}>
+          <View style={styles.errorCard}>
+            <View style={styles.errorIconCircle}>
+              <Ionicons name="person-outline" size={26} color="#A83232" />
             </View>
-            <View style={styles.userInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {user?.fullName || "SafeBite Member"}
-                </Text>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={handleOpenEdit}
-                  style={styles.editIconButton}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="pencil" size={16} color={COLORS.primary} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.userEmail} numberOfLines={1}>
-                {user?.email}
-              </Text>
-              <View style={styles.badgeRow}>
-                <View style={styles.roleBadge}>
-                  <Text style={styles.roleBadgeText}>{user?.role || "USER"}</Text>
-                </View>
-                <Text style={styles.joinDate}>Member since {formattedDate}</Text>
-              </View>
-            </View>
-          </View>
-        </SafeBiteCard>
-
-        {/* Health Profile Status */}
-        <SafeBiteCard style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <Ionicons name="fitness-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.sectionCardTitle}>Health Context Profile</Text>
-          </View>
-          <Text style={styles.sectionCardBody}>
-            {user?.healthConsent
-              ? "Health context active. Contaminant data will be matched with your physiological criteria."
-              : "Health profile is optional and requires explicit consent. Set up tags to receive curated contamination context."}
-          </Text>
-
-          {user?.healthConsent && user?.healthTags && user.healthTags.length > 0 && (
-            <View style={styles.activeTagsRow}>
-              {user.healthTags.map((tag) => (
-                <View key={tag} style={styles.activeTagBadge}>
-                  <Text style={styles.activeTagBadgeText}>{tag.replace("_", " ")}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          <View style={styles.healthStatusRow}>
-            <Text style={styles.healthStatusLabel}>Consent Status:</Text>
-            <Text
-              style={[
-                styles.healthStatusValue,
-                { color: user?.healthConsent ? COLORS.success : COLORS.textMuted },
-              ]}
+            <Text style={styles.errorTitle}>Profile couldn't be loaded</Text>
+            <Text style={styles.errorSubtitle}>
+              Your account data was not changed. Try retrieving it again.
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={handleRetryLoad}
+              style={styles.tryAgainButton}
             >
-              {user?.healthConsent ? "Granted" : "Not configured"}
-            </Text>
+              <Text style={styles.tryAgainText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* User Identity Card (Page 62) */}
+          <View style={styles.identityCard}>
+            <View style={styles.identityRow}>
+              <View style={styles.avatarCircle}>
+                <Ionicons name="person-outline" size={28} color="#084D25" />
+              </View>
+              <View style={styles.identityTextCol}>
+                <Text style={styles.overline}>
+                  {user ? "AUTHENTICATED IDENTITY" : "PROTOTYPE IDENTITY"}
+                </Text>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {user?.fullName || "SafeBite user"}
+                </Text>
+                <Text style={styles.userEmail} numberOfLines={1}>
+                  {user?.email || "demo@example.invalid"}
+                </Text>
+              </View>
+            </View>
+
+            {/* Edit Profile Button inside card */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleOpenEdit}
+              style={styles.editProfileButton}
+            >
+              <Ionicons
+                name="pencil-outline"
+                size={16}
+                color="#084D25"
+                style={styles.editIcon}
+              />
+              <Text style={styles.editProfileText}>Edit profile</Text>
+            </TouchableOpacity>
           </View>
 
+          {/* Grouped Settings Navigation Card (The 6 Rows from Page 62) */}
+          <View style={styles.settingsGroupCard}>
+            {/* Row 1: Health Profile */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setShowHealthModal(true)}
+              style={styles.settingsRow}
+            >
+              <View style={styles.rowIconContainer}>
+                <Ionicons name="medical-outline" size={20} color="#084D25" />
+              </View>
+              <View style={styles.rowTextCol}>
+                <Text style={styles.rowTitle}>Health Profile</Text>
+                <Text style={styles.rowSubtitle}>
+                  Manage optional consented health context
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#7A8C7F" />
+            </TouchableOpacity>
+
+            <View style={styles.rowDivider} />
+
+            {/* Row 2: Search & Scan History */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                showInfo(
+                  "Search & Scan History",
+                  "SafeBite records your barcode scans and search queries locally and synchronizes with your profile for instant retrieval. You can review or clear your activity at any time."
+                )
+              }
+              style={styles.settingsRow}
+            >
+              <View style={styles.rowIconContainer}>
+                <Ionicons name="time-outline" size={20} color="#084D25" />
+              </View>
+              <View style={styles.rowTextCol}>
+                <Text style={styles.rowTitle}>Search & Scan History</Text>
+                <Text style={styles.rowSubtitle}>
+                  Review or delete your activity
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#7A8C7F" />
+            </TouchableOpacity>
+
+            <View style={styles.rowDivider} />
+
+            {/* Row 3: Favorites & Watchlist */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate("SavedTab")}
+              style={styles.settingsRow}
+            >
+              <View style={styles.rowIconContainer}>
+                <Ionicons name="bookmark-outline" size={20} color="#084D25" />
+              </View>
+              <View style={styles.rowTextCol}>
+                <Text style={styles.rowTitle}>Favorites & Watchlist</Text>
+                <Text style={styles.rowSubtitle}>View products you saved</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#7A8C7F" />
+            </TouchableOpacity>
+
+            <View style={styles.rowDivider} />
+
+            {/* Row 4: Privacy & Data */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                showInfo(
+                  "Privacy & Data Controls",
+                  "SafeBite adheres to strict privacy-by-design principles. Health context tags are never used for clinical profiling, and personal data is never sold. You have complete control to revoke consent or purge your data."
+                )
+              }
+              style={styles.settingsRow}
+            >
+              <View style={styles.rowIconContainer}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={20}
+                  color="#084D25"
+                />
+              </View>
+              <View style={styles.rowTextCol}>
+                <Text style={styles.rowTitle}>Privacy & Data</Text>
+                <Text style={styles.rowSubtitle}>
+                  Account data and privacy controls
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#7A8C7F" />
+            </TouchableOpacity>
+
+            <View style={styles.rowDivider} />
+
+            {/* Row 5: Preferences */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                showInfo(
+                  "App Preferences",
+                  "Food Contaminant Standards: Codex Alimentarius, EU Commission Regulations, and PSQCA (Pakistan Standards and Quality Control Authority).\n\nUnits: mg/kg (ppm) and percentage threshold comparisons."
+                )
+              }
+              style={styles.settingsRow}
+            >
+              <View style={styles.rowIconContainer}>
+                <Ionicons name="options-outline" size={20} color="#084D25" />
+              </View>
+              <View style={styles.rowTextCol}>
+                <Text style={styles.rowTitle}>Preferences</Text>
+                <Text style={styles.rowSubtitle}>
+                  App display and content preferences
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#7A8C7F" />
+            </TouchableOpacity>
+
+            <View style={styles.rowDivider} />
+
+            {/* Row 6: About SafeBite */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                showInfo(
+                  "About SafeBite",
+                  "SafeBite is an academic BSCS Final Year Project decision-support system benchmarking heavy metals (Lead, Cadmium, Arsenic, Mercury, Chromium) in packaged foods in Pakistan.\n\nSafeBite provides evidence-grounded decision support based on documented scientific studies and reference thresholds. It does not replace medical or clinical diagnoses."
+                )
+              }
+              style={styles.settingsRow}
+            >
+              <View style={styles.rowIconContainer}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={20}
+                  color="#084D25"
+                />
+              </View>
+              <View style={styles.rowTextCol}>
+                <Text style={styles.rowTitle}>About SafeBite</Text>
+                <Text style={styles.rowSubtitle}>
+                  Decision-support scope and app information
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#7A8C7F" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Sign Out Button (Page 62) */}
           <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setShowHealthModal(true)}
-            style={styles.manageHealthButton}
-          >
-            <Text style={styles.manageHealthText}>
-              {user?.healthConsent ? "Manage Health Context Tags" : "Set Up Health Context"}
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
-          </TouchableOpacity>
-        </SafeBiteCard>
-
-        {/* Account Details Group */}
-        <SafeBiteCard style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.sectionCardTitle}>System & Safety Baseline</Text>
-          </View>
-
-          <View style={styles.rowItem}>
-            <Text style={styles.rowLabel}>API Base URL</Text>
-            <Text style={styles.rowValue} numberOfLines={1}>
-              {ENV.API_BASE_URL}
-            </Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.rowItem}>
-            <Text style={styles.rowLabel}>Food Standards</Text>
-            <Text style={styles.rowValue}>Codex, EU & PSQCA</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.rowItem}>
-            <Text style={styles.rowLabel}>App Version</Text>
-            <Text style={styles.rowValue}>1.0.0 (Phase 1 Baseline)</Text>
-          </View>
-        </SafeBiteCard>
-
-        {/* Sign Out Button */}
-        <View style={styles.signOutWrapper}>
-          <SafeBiteButton
-            title="Sign out"
-            variant="danger"
+            activeOpacity={0.88}
             onPress={() => setShowSignOutModal(true)}
-            leftIcon={<Ionicons name="log-out-outline" size={18} color={COLORS.textInverse} />}
-          />
-        </View>
+            style={styles.signOutButton}
+          >
+            <Ionicons
+              name="log-out-outline"
+              size={18}
+              color="#A83232"
+              style={styles.signOutIcon}
+            />
+            <Text style={styles.signOutText}>Sign out</Text>
+          </TouchableOpacity>
 
-        {/* Disclaimer */}
-        <View style={styles.disclaimerContainer}>
-          <Text style={styles.disclaimerText}>
-            SafeBite decision-support data is grounded in published research and reference standards.
-            It does not replace professional medical or dietary consultation.
+          {/* Footer Version Label (Page 62) */}
+          <Text style={styles.footerLabel}>
+            SafeBite prototype • Version 1.0
           </Text>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
 
-      {/* Sign Out Confirmation Dialog */}
-      <ConfirmationDialog
+      {/* Page 63: Sign Out Confirmation Dialog */}
+      <Modal
         visible={showSignOutModal}
-        title="Sign Out"
-        message="Are you sure you want to end your current session? You will need to sign in again to access your saved items."
-        confirmText="Sign Out"
-        cancelText="Cancel"
-        confirmVariant="danger"
-        onConfirm={async () => {
-          setShowSignOutModal(false);
-          await signOut();
-        }}
-        onCancel={() => setShowSignOutModal(false)}
-      />
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSignOutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.dialogCard}>
+            <View style={styles.dialogIconCircle}>
+              <Ionicons name="log-out-outline" size={26} color="#A83232" />
+            </View>
 
-      {/* Edit Profile Modal */}
+            <Text style={styles.dialogTitle}>Sign out of SafeBite?</Text>
+            <Text style={styles.dialogMessage}>
+              You will need to sign in again to access account history,
+              favorites, watchlist items, and profile settings.
+            </Text>
+
+            <View style={styles.dialogButtonsRow}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setShowSignOutModal(false)}
+                style={styles.dialogCancelButton}
+              >
+                <Text style={styles.dialogCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={async () => {
+                  setShowSignOutModal(false);
+                  await signOut();
+                }}
+                style={styles.dialogConfirmButton}
+              >
+                <Text style={styles.dialogConfirmText}>Sign out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Profile Name Modal */}
       <Modal
         visible={showEditModal}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowEditModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Profile Name</Text>
+          <View style={styles.editModalCard}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Edit Profile Name</Text>
               <TouchableOpacity
                 onPress={() => setShowEditModal(false)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+                <Ionicons name="close" size={22} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -241,21 +410,50 @@ export const ProfileScreen: React.FC = () => {
 
             <SafeBiteInput
               label="Full Name"
-              placeholder="e.g. Waleed Khan"
+              placeholder="e.g. Ayesha Khan"
               value={newName}
               onChangeText={setNewName}
               leftIcon="person-outline"
-              helperText="Letters and approved punctuation only (no numbers or emojis)"
+              helperText="Alphabetic letters and approved punctuation only"
+              autoFocus
             />
 
-            <View style={styles.modalActions}>
-              <SafeBiteButton
-                title="Save Changes"
-                variant="primary"
-                loading={editLoading}
-                onPress={handleSaveProfile}
-              />
+            <SafeBiteButton
+              title="Save Changes"
+              variant="primary"
+              loading={editLoading}
+              onPress={handleSaveProfile}
+              style={styles.saveProfileButton}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Informational Dialog */}
+      <Modal
+        visible={showInfoModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInfoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.infoModalCard}>
+            <View style={styles.infoModalHeader}>
+              <Text style={styles.infoModalTitle}>{infoTitle}</Text>
+              <TouchableOpacity
+                onPress={() => setShowInfoModal(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={22} color={COLORS.textPrimary} />
+              </TouchableOpacity>
             </View>
+            <Text style={styles.infoModalText}>{infoContent}</Text>
+            <SafeBiteButton
+              title="Close"
+              variant="secondary"
+              onPress={() => setShowInfoModal(false)}
+              style={styles.infoCloseButton}
+            />
           </View>
         </View>
       </Modal>
@@ -266,235 +464,361 @@ export const ProfileScreen: React.FC = () => {
         animationType="slide"
         onRequestClose={() => setShowHealthModal(false)}
       >
-        <HealthContextScreen
-          onClose={() => setShowHealthModal(false)}
-        />
+        <HealthContextScreen onClose={() => setShowHealthModal(false)} />
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screenContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  container: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.xxl,
-  },
-  header: {
-    marginVertical: SPACING.md,
-  },
-  screenTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
-    fontSize: TYPOGRAPHY.fontSize.title,
-    color: COLORS.textPrimary,
-  },
-  userCard: {
-    marginBottom: SPACING.md,
-  },
-  avatarRow: {
+  topBar: {
+    height: 52,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: SPACING.md,
+    marginTop: 4,
+    marginBottom: 8,
   },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.surfaceLightGreen,
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5EAE5",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: SPACING.md,
+    ...SHADOWS.sm,
   },
-  userInfo: {
-    flex: 1,
+  topBarTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 18,
+    color: "#084D25",
+    textAlign: "center",
   },
-  nameRow: {
+  backButtonPlaceholder: {
+    width: 44,
+  },
+  scrollContent: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: 6,
+    paddingBottom: SPACING.xl,
+  },
+  identityCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E5EAE5",
+    ...SHADOWS.sm,
+  },
+  identityRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 14,
+  },
+  avatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "#D9EADD",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  identityTextCol: {
+    flex: 1,
+  },
+  overline: {
+    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    color: "#7A8C7F",
+    marginBottom: 2,
   },
   userName: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    color: COLORS.textPrimary,
-    flexShrink: 1,
-  },
-  editIconButton: {
-    marginLeft: SPACING.xs,
-    padding: 2,
+    fontSize: 18,
+    color: "#084D25",
   },
   userEmail: {
     fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
+    fontSize: 12,
+    color: "#7A8C7F",
     marginTop: 2,
   },
-  badgeRow: {
+  editProfileButton: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#085F2D",
     flexDirection: "row",
     alignItems: "center",
-    marginTop: SPACING.xs,
+    justifyContent: "center",
   },
-  roleBadge: {
-    backgroundColor: COLORS.surfaceLightGreen,
-    borderRadius: RADIUS.pill,
-    paddingHorizontal: SPACING.xs + 2,
-    paddingVertical: 2,
-    marginRight: SPACING.sm,
+  editIcon: {
+    marginRight: 8,
   },
-  roleBadgeText: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: 10,
-    color: COLORS.primary,
+  editProfileText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 13,
+    color: "#085F2D",
   },
-  joinDate: {
-    fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: 10,
-    color: COLORS.textMuted,
-  },
-  sectionCard: {
-    marginBottom: SPACING.md,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: SPACING.xs,
-  },
-  sectionCardTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textPrimary,
-    marginLeft: SPACING.xs,
-  },
-  sectionCardBody: {
-    fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    lineHeight: TYPOGRAPHY.lineHeight.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  healthStatusRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: SPACING.xs,
-    paddingTop: SPACING.xs,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-  },
-  healthStatusLabel: {
-    fontFamily: TYPOGRAPHY.fontFamily.primaryMedium,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textSecondary,
-  },
-  healthStatusValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-  },
-  activeTagsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: SPACING.xs,
-    marginBottom: SPACING.xs,
-  },
-  activeTagBadge: {
-    backgroundColor: COLORS.surfaceLightGreen,
-    borderRadius: RADIUS.pill,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  activeTagBadgeText: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: 10,
-    color: COLORS.primaryDark,
-  },
-  manageHealthButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.xs,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-  },
-  manageHealthText: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.primary,
-  },
-  rowItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  rowLabel: {
-    fontFamily: TYPOGRAPHY.fontFamily.primaryMedium,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textSecondary,
-  },
-  rowValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.scientificMedium,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textPrimary,
-    flexShrink: 1,
-    marginLeft: SPACING.sm,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.borderLight,
-    marginVertical: SPACING.xs,
-  },
-  signOutWrapper: {
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.lg,
-  },
-  disclaimerContainer: {
-    padding: SPACING.sm,
-    backgroundColor: COLORS.surfaceGreenSubtle,
-    borderRadius: RADIUS.sm,
+  settingsGroupCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: COLORS.surfaceLightGreen,
+    borderColor: "#E5EAE5",
+    overflow: "hidden",
+    marginBottom: 20,
+    ...SHADOWS.sm,
   },
-  disclaimerText: {
+  settingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  rowIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#D9EADD",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  rowTextCol: {
+    flex: 1,
+  },
+  rowTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 14,
+    color: "#1A291E",
+  },
+  rowSubtitle: {
     fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.xs - 1,
-    lineHeight: TYPOGRAPHY.lineHeight.xs,
-    color: COLORS.textSecondary,
+    fontSize: 11,
+    color: "#7A8C7F",
+    marginTop: 2,
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: "#F0F4F1",
+    marginLeft: 70,
+  },
+  signOutButton: {
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#A83232",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  signOutIcon: {
+    marginRight: 8,
+  },
+  signOutText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 14,
+    color: "#A83232",
+  },
+  footerLabel: {
+    fontFamily: TYPOGRAPHY.fontFamily.primary,
+    fontSize: 11,
+    color: "#8A988D",
     textAlign: "center",
+    marginBottom: 24,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: COLORS.modalOverlay,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
     justifyContent: "center",
     alignItems: "center",
-    padding: SPACING.lg,
+    padding: 24,
   },
-  modalCard: {
+  dialogCard: {
     width: "100%",
-    maxWidth: 360,
-    backgroundColor: COLORS.card,
-    borderRadius: RADIUS.card,
-    padding: SPACING.lg,
+    maxWidth: 340,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
     ...SHADOWS.elevated,
   },
-  modalHeader: {
+  dialogIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "#FBE8E8",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  dialogTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 18,
+    color: "#084D25",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  dialogMessage: {
+    fontFamily: TYPOGRAPHY.fontFamily.primary,
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#66716A",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  dialogButtonsRow: {
+    flexDirection: "row",
+    width: "100%",
+    marginTop: 22,
+  },
+  dialogCancelButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#C5D6C7",
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  dialogCancelText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 13,
+    color: "#4A624E",
+  },
+  dialogConfirmButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: "#A83232",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dialogConfirmText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 13,
+    color: "#FFFFFF",
+  },
+  editModalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 20,
+    ...SHADOWS.elevated,
+  },
+  editModalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: SPACING.md,
+    marginBottom: 16,
   },
-  modalTitle: {
+  editModalTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    color: COLORS.textPrimary,
+    fontSize: 17,
+    color: "#084D25",
   },
-  modalActions: {
-    marginTop: SPACING.sm,
+  saveProfileButton: {
+    marginTop: 12,
+  },
+  infoModalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 20,
+    ...SHADOWS.elevated,
+  },
+  infoModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  infoModalTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 16,
+    color: "#084D25",
+    flex: 1,
+    marginRight: 8,
+  },
+  infoModalText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primary,
+    fontSize: 13,
+    lineHeight: 19,
+    color: COLORS.textSecondary,
+    marginBottom: 16,
+  },
+  infoCloseButton: {
+    alignSelf: "flex-end",
+    minWidth: 100,
+  },
+  errorContainer: {
+    flex: 1,
+    padding: SPACING.md,
+    justifyContent: "flex-start",
+  },
+  errorCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5EAE5",
+    ...SHADOWS.sm,
+  },
+  errorIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "#FBE8E8",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  errorTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 18,
+    color: "#084D25",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  errorSubtitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primary,
+    fontSize: 12,
+    color: "#66716A",
+    textAlign: "center",
+    lineHeight: 17,
+    marginBottom: 18,
+  },
+  tryAgainButton: {
+    height: 46,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tryAgainText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 13,
+    color: "#FFFFFF",
   },
 });
 
 export default ProfileScreen;
-
