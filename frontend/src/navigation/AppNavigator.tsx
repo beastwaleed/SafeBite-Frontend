@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Platform } from "react-native";
+import { StyleSheet, Platform, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { AppTabParamList } from "../types/navigation.types";
@@ -19,10 +19,10 @@ export const AppNavigator: React.FC = () => {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarInactiveTintColor: "#7A8C7F",
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
           switch (route.name) {
@@ -30,7 +30,7 @@ export const AppNavigator: React.FC = () => {
               iconName = focused ? "home" : "home-outline";
               break;
             case "ScanTab":
-              iconName = focused ? "barcode" : "barcode-outline";
+              iconName = "scan-outline";
               break;
             case "AskAITab":
               iconName = focused ? "sparkles" : "sparkles-outline";
@@ -45,7 +45,15 @@ export const AppNavigator: React.FC = () => {
               iconName = "ellipse-outline";
           }
 
-          return <Ionicons name={iconName} size={size || 22} color={color} />;
+          if (focused && route.name === "HomeTab") {
+            return (
+              <View style={styles.activePillContainer}>
+                <Ionicons name={iconName} size={22} color={COLORS.primary} />
+              </View>
+            );
+          }
+
+          return <Ionicons name={iconName} size={22} color={color} />;
         },
       })}
     >
@@ -80,19 +88,26 @@ export const AppNavigator: React.FC = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.card,
-    borderTopColor: COLORS.border,
+    backgroundColor: "#FFFFFF",
+    borderTopColor: "#E8EFE9",
     borderTopWidth: 1,
     height: Platform.OS === "ios" ? 84 : DIMENSIONS.tabBarHeight,
-    paddingBottom: Platform.OS === "ios" ? 24 : 8,
-    paddingTop: 8,
-    elevation: 8,
+    paddingBottom: Platform.OS === "ios" ? 22 : 6,
+    paddingTop: 6,
+    elevation: 6,
   },
   tabBarLabel: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryMedium,
     fontSize: 11,
   },
+  activePillContainer: {
+    backgroundColor: "#EDF4EE",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
 
 export default AppNavigator;
-

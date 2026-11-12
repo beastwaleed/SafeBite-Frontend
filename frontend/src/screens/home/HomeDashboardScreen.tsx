@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
@@ -6,146 +6,262 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
-  Image,
+  TextInput,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { AppTabParamList } from "../../types/navigation.types";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from "../../constants/theme";
-import { SafeBiteCard } from "../../components/common/SafeBiteCard";
-import { useAuth } from "../../context/AuthContext";
 
 interface HomeDashboardScreenProps {
   navigation: BottomTabNavigationProp<AppTabParamList, "HomeTab">;
 }
 
+interface SampleProduct {
+  id: string;
+  name: string;
+  category: string;
+  bgColor: string;
+  iconColor: string;
+  labelColor: string;
+}
+
+const RECENT_PRODUCTS: SampleProduct[] = [
+  {
+    id: "1",
+    name: "Oat cereal",
+    category: "Breakfast foods",
+    bgColor: "#F2E5BC",
+    iconColor: "#7D651E",
+    labelColor: "#8F772E",
+  },
+  {
+    id: "2",
+    name: "Tomato soup",
+    category: "Canned foods",
+    bgColor: "#F3D5CA",
+    iconColor: "#8F4B38",
+    labelColor: "#9E5B49",
+  },
+  {
+    id: "3",
+    name: "Trail mix",
+    category: "Snacks",
+    bgColor: "#DCEBDD",
+    iconColor: "#35653E",
+    labelColor: "#4B7B54",
+  },
+];
+
 export const HomeDashboardScreen: React.FC<HomeDashboardScreenProps> = ({ navigation }) => {
-  const { user } = useAuth();
-  const displayName = user?.fullName?.split(" ")[0] || "there";
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isOffline] = useState(false); // Can be toggled or connected to NetInfo
+
+  // Time-based greeting with "Good morning" baseline
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Top Header */}
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top Header Row */}
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.greetingText}>Hello, {displayName}</Text>
-            <Text style={styles.headerSubtitle}>Ready to check your food?</Text>
+          <View style={styles.greetingCol}>
+            <Text style={styles.greetingLabel}>{getGreeting()}</Text>
+            <Text style={styles.headerTitle}>
+              What would you like to{"\n"}explore?
+            </Text>
           </View>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => navigation.navigate("ProfileTab")}
-            style={styles.avatarButton}
+            style={styles.profileButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="person-circle" size={40} color={COLORS.primary} />
+            <Ionicons name="person-outline" size={22} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
 
-        {/* Search Shortcut Bar */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.searchBar}
-          onPress={() => navigation.navigate("ScanTab")}
-        >
-          <Ionicons name="search-outline" size={20} color={COLORS.textMuted} style={styles.searchIcon} />
-          <Text style={styles.searchPlaceholder}>Search products, brands, or categories...</Text>
-        </TouchableOpacity>
-
-        {/* Dominant Action Card: Scan Product */}
-        <SafeBiteCard style={styles.scanCard}>
-          <View style={styles.scanBadge}>
-            <Text style={styles.scanBadgeText}>Primary Feature</Text>
-          </View>
-          <View style={styles.scanContentRow}>
-            <View style={styles.scanTextCol}>
-              <Text style={styles.scanTitle}>Scan Product Barcode</Text>
-              <Text style={styles.scanDescription}>
-                Instantly retrieve heavy metal contamination evidence and verify against
-                Codex, EU, and PSQCA standards.
+        {/* Offline Banner (Screen 5.1 / Page 7) */}
+        {isOffline && (
+          <View style={styles.offlineBanner}>
+            <Ionicons
+              name="cloud-offline-outline"
+              size={22}
+              color="#8D6018"
+              style={styles.offlineIcon}
+            />
+            <View style={styles.offlineTextCol}>
+              <Text style={styles.offlineTitle}>You're offline</Text>
+              <Text style={styles.offlineSubtitle}>
+                Some saved content may still be available.
               </Text>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.scanActionButton}
-                onPress={() => navigation.navigate("ScanTab")}
-              >
-                <Ionicons name="barcode-outline" size={20} color={COLORS.textInverse} style={styles.buttonIcon} />
-                <Text style={styles.scanActionText}>Open Scanner</Text>
-              </TouchableOpacity>
             </View>
           </View>
-        </SafeBiteCard>
-
-        {/* Optional Health Context Setup Card */}
-        {!user?.healthConsent && (
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={() => navigation.navigate("ProfileTab")}
-          >
-            <SafeBiteCard style={styles.healthBannerCard}>
-              <View style={styles.healthBannerHeader}>
-                <View style={styles.healthIconWrapper}>
-                  <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
-                </View>
-                <View style={styles.healthTextCol}>
-                  <Text style={styles.healthBannerTitle}>Personalize Safety Warnings (Optional)</Text>
-                  <Text style={styles.healthBannerSub}>
-                    Opt-in to highlight heavy metal risks for pregnancy, kidney, or infant care.
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-              </View>
-            </SafeBiteCard>
-          </TouchableOpacity>
         )}
 
-        {/* Ask AI Shortcut Card */}
-        <SafeBiteCard style={styles.aiCard}>
-          <View style={styles.aiHeader}>
-            <View style={styles.aiIconWrapper}>
-              <Ionicons name="sparkles" size={22} color={COLORS.primary} />
+        {/* Search Products Input Bar */}
+        <View style={styles.searchBar}>
+          <Ionicons
+            name="search-outline"
+            size={20}
+            color={COLORS.primaryDark}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search products"
+            placeholderTextColor="#7A8C7F"
+            style={styles.searchInput}
+            returnKeyType="search"
+          />
+        </View>
+
+        {/* Primary Action Button 1: Solid Dark Green Scan */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          style={styles.primaryScanButton}
+          onPress={() => navigation.navigate("ScanTab")}
+        >
+          <Ionicons
+            name="scan-outline"
+            size={20}
+            color="#FFFFFF"
+            style={styles.buttonIcon}
+          />
+          <Text style={styles.primaryButtonText}>Scan a product</Text>
+        </TouchableOpacity>
+
+        {/* Primary Action Button 2: White with Green Border Search */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          style={styles.secondarySearchButton}
+          onPress={() => navigation.navigate("ScanTab")}
+        >
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color={COLORS.primary}
+            style={styles.buttonIcon}
+          />
+          <Text style={styles.secondaryButtonText}>Search products</Text>
+        </TouchableOpacity>
+
+        {/* Recently Viewed Section */}
+        <View style={styles.recentlyViewedSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Recently viewed</Text>
+              <View style={styles.prototypeBadge}>
+                <Text style={styles.prototypeBadgeText}>Prototype data</Text>
+              </View>
             </View>
-            <View style={styles.aiHeaderTextWrapper}>
-              <Text style={styles.aiTitle}>Ask SafeBite AI</Text>
-              <Text style={styles.aiSubtitle}>Grounded in real food-safety research</Text>
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate("SavedTab")}
+            >
+              <Text style={styles.viewAllLink}>View all</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.aiBody}>
-            Have questions about lead or cadmium in everyday Pakistani foods? Ask our
-            RAG-powered food safety assistant.
-          </Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.aiLinkRow}
-            onPress={() => navigation.navigate("AskAITab")}
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.carouselContainer}
           >
-            <Text style={styles.aiLinkText}>Chat with AI Assistant</Text>
-            <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
-          </TouchableOpacity>
-        </SafeBiteCard>
+            {RECENT_PRODUCTS.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.88}
+                style={styles.productCard}
+                onPress={() => navigation.navigate("ScanTab")}
+              >
+                {/* Upper Color Box Container */}
+                <View
+                  style={[
+                    styles.productImageContainer,
+                    { backgroundColor: item.bgColor },
+                  ]}
+                >
+                  <Ionicons
+                    name="cube-outline"
+                    size={32}
+                    color={item.iconColor}
+                  />
+                  <Text
+                    style={[
+                      styles.imagePlaceholderText,
+                      { color: item.labelColor },
+                    ]}
+                  >
+                    Image placeholder
+                  </Text>
+                </View>
 
-        {/* Quick Highlights / Recent Activity Shell */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Food Safety Insights</Text>
+                {/* Text section */}
+                <Text style={styles.productName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.productCategory} numberOfLines={1}>
+                  {item.category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
-        <SafeBiteCard style={styles.insightCard}>
-          <View style={styles.insightHeader}>
-            <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.insightTitle}>Pakistan Food Standards Baseline</Text>
+        {/* Bottom Action Card 1: Ask SafeBite (Solid Forest Green) */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.askSafeBiteCard}
+          onPress={() => navigation.navigate("AskAITab")}
+        >
+          <View style={styles.askIconCircle}>
+            <Ionicons name="sparkles" size={20} color={COLORS.primary} />
           </View>
-          <Text style={styles.insightBody}>
-            SafeBite benchmarks reported food contaminants against Codex Alimentarius
-            (WHO/FAO) and PSQCA reference thresholds.
-          </Text>
-        </SafeBiteCard>
+          <View style={styles.askTextCol}>
+            <Text style={styles.askTitle}>Ask SafeBite</Text>
+            <Text style={styles.askSubtitle}>
+              Ask about data sources and comparisons.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+        </TouchableOpacity>
 
-        {/* Mandatory Decision-Support Disclaimer */}
-        <View style={styles.disclaimerContainer}>
-          <Text style={styles.disclaimerText}>
-            SafeBite provides food-safety decision support based on documented scientific studies.
-            It does not provide medical diagnoses or individual health guarantees.
-          </Text>
-        </View>
+        {/* Bottom Action Card 2: Saved Items (White with light green icon) */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.savedItemsCard}
+          onPress={() => navigation.navigate("SavedTab")}
+        >
+          <View style={styles.savedIconCircle}>
+            <Ionicons
+              name="bookmark-outline"
+              size={20}
+              color={COLORS.primary}
+            />
+          </View>
+          <View style={styles.savedTextCol}>
+            <Text style={styles.savedTitle}>Saved items</Text>
+            <Text style={styles.savedSubtitle}>
+              Return to products you saved.
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={COLORS.primary}
+          />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -164,224 +280,258 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: SPACING.sm,
+    alignItems: "flex-start",
+    marginTop: SPACING.xs,
     marginBottom: SPACING.md,
   },
-  greetingText: {
+  greetingCol: {
+    flex: 1,
+    paddingRight: SPACING.sm,
+  },
+  greetingLabel: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryMedium,
+    fontSize: 14,
+    color: "#2D5A3C",
+    marginBottom: 4,
+  },
+  headerTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    color: COLORS.textPrimary,
+    fontSize: 24,
+    lineHeight: 30,
+    color: "#084D25",
   },
-  headerSubtitle: {
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5EAE5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 4,
+    ...SHADOWS.sm,
+  },
+  offlineBanner: {
+    backgroundColor: "#FEF7E6",
+    borderColor: "#F5DEB3",
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: SPACING.md,
+  },
+  offlineIcon: {
+    marginRight: 10,
+  },
+  offlineTextCol: {
+    flex: 1,
+  },
+  offlineTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 13,
+    color: "#7A4F00",
+  },
+  offlineSubtitle: {
     fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
+    fontSize: 11,
+    color: "#8D6018",
     marginTop: 2,
-  },
-  avatarButton: {
-    padding: 2,
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    height: 48,
-    backgroundColor: COLORS.card,
-    borderRadius: RADIUS.card,
-    paddingHorizontal: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    height: 50,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: "#C5D6C7",
     marginBottom: SPACING.md,
-    ...SHADOWS.sm,
   },
   searchIcon: {
-    marginRight: SPACING.sm,
+    marginRight: 10,
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textMuted,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    height: "100%",
+    ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
-  scanCard: {
-    backgroundColor: COLORS.surfaceLightGreen,
-    borderColor: "#CBE4D2",
-    marginBottom: SPACING.md,
-    padding: SPACING.md,
-  },
-  scanBadge: {
-    alignSelf: "flex-start",
+  primaryScanButton: {
+    height: 50,
     backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.pill,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    marginBottom: SPACING.xs,
-  },
-  scanBadgeText: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: 10,
-    color: COLORS.textInverse,
-  },
-  scanContentRow: {
-    marginTop: 4,
-  },
-  scanTextCol: {
-    width: "100%",
-  },
-  scanTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    color: COLORS.primaryDark,
-    marginBottom: 4,
-  },
-  scanDescription: {
-    fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    lineHeight: TYPOGRAPHY.lineHeight.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-  },
-  scanActionButton: {
+    borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    height: 46,
-    backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.card,
+    marginBottom: 12,
+  },
+  primaryButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 15,
+    color: "#FFFFFF",
+  },
+  secondarySearchButton: {
+    height: 50,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  secondaryButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 15,
+    color: COLORS.primary,
   },
   buttonIcon: {
-    marginRight: SPACING.sm,
+    marginRight: 8,
   },
-  scanActionText: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textInverse,
+  recentlyViewedSection: {
+    marginBottom: 20,
   },
-  healthBannerCard: {
-    backgroundColor: "#F2F8F4",
-    borderColor: "#D2E7D8",
-    marginBottom: SPACING.md,
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
-  healthBannerHeader: {
+  sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  healthIconWrapper: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.pill,
-    backgroundColor: "#E2F0E6",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: SPACING.sm,
-  },
-  healthTextCol: {
-    flex: 1,
-    marginRight: SPACING.xs,
-  },
-  healthBannerTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textPrimary,
-  },
-  healthBannerSub: {
-    fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: 11,
-    lineHeight: 15,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  aiCard: {
-    marginBottom: SPACING.md,
-  },
-  aiHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: SPACING.xs,
-  },
-  aiIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.surfaceLightGreen,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: SPACING.sm,
-  },
-  aiHeaderTextWrapper: {
-    flex: 1,
-  },
-  aiTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textPrimary,
-  },
-  aiSubtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textSecondary,
-  },
-  aiBody: {
-    fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    lineHeight: TYPOGRAPHY.lineHeight.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
-  },
-  aiLinkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  aiLinkText: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.primary,
-    marginRight: 4,
-  },
-  sectionHeader: {
-    marginVertical: SPACING.xs,
   },
   sectionTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 18,
+    color: "#084D25",
+  },
+  prototypeBadge: {
+    backgroundColor: "#E2ECE4",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  prototypeBadgeText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryMedium,
+    fontSize: 11,
+    color: "#4A624E",
+  },
+  viewAllLink: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 13,
+    color: COLORS.primary,
+  },
+  carouselContainer: {
+    paddingVertical: 4,
+    paddingRight: 16,
+  },
+  productCard: {
+    width: 136,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 10,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#E8EFE9",
+    ...SHADOWS.sm,
+  },
+  productImageContainer: {
+    height: 105,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  imagePlaceholderText: {
+    fontFamily: TYPOGRAPHY.fontFamily.primary,
+    fontSize: 9,
+    marginTop: 4,
+  },
+  productName: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 13,
     color: COLORS.textPrimary,
   },
-  insightCard: {
-    marginTop: SPACING.xs,
-    marginBottom: SPACING.md,
+  productCategory: {
+    fontFamily: TYPOGRAPHY.fontFamily.primary,
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
-  insightHeader: {
+  askSafeBiteCard: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 18,
+    padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  insightTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.primarySemiBold,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textPrimary,
-    marginLeft: SPACING.xs,
+  askIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
   },
-  insightBody: {
+  askTextCol: {
+    flex: 1,
+  },
+  askTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 15,
+    color: "#FFFFFF",
+  },
+  askSubtitle: {
     fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    lineHeight: TYPOGRAPHY.lineHeight.sm,
-    color: COLORS.textSecondary,
+    fontSize: 12,
+    color: "#D8ECDD",
+    marginTop: 2,
   },
-  disclaimerContainer: {
-    padding: SPACING.sm,
-    backgroundColor: COLORS.surfaceGreenSubtle,
-    borderRadius: RADIUS.sm,
+  savedItemsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.surfaceLightGreen,
-    marginTop: SPACING.xs,
+    borderColor: "#E1E8E2",
+    marginBottom: 20,
+    ...SHADOWS.sm,
   },
-  disclaimerText: {
+  savedIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#D9EADD",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  savedTextCol: {
+    flex: 1,
+  },
+  savedTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.primaryBold,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+  },
+  savedSubtitle: {
     fontFamily: TYPOGRAPHY.fontFamily.primary,
-    fontSize: TYPOGRAPHY.fontSize.xs - 1,
-    lineHeight: TYPOGRAPHY.lineHeight.xs,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    textAlign: "center",
+    marginTop: 2,
   },
 });
 
 export default HomeDashboardScreen;
-
