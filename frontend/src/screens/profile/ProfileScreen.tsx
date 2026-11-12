@@ -300,7 +300,7 @@ export const ProfileScreen: React.FC = () => {
               onPress={() =>
                 showInfo(
                   "About SafeBite",
-                  "SafeBite is an academic BSCS Final Year Project decision-support system benchmarking heavy metals (Lead, Cadmium, Arsenic, Mercury, Chromium) in packaged foods in Pakistan.\n\nSafeBite provides evidence-grounded decision support based on documented scientific studies and reference thresholds. It does not replace medical or clinical diagnoses."
+                  "SafeBite is a food safety intelligence and decision-support mobile platform designed to provide consumers with scientific transparency on packaged food products.\n\nSafeBite benchmarks reported heavy metal contaminants (Lead, Cadmium, Arsenic, Mercury, and Chromium) against recognized national standards (PSQCA) and international benchmarks (Codex Alimentarius and European Commission Regulations).\n\nKey Capabilities:\n• Barcode Scanning & Instant Safety Profiling\n• Heavy Metal Contamination Benchmarking\n• Evidence-Based Research & Reference Standards\n• Personalized Consented Health Sensitivity Insights\n• Safer Food Alternatives & Direct Comparisons\n• AI-Powered Food Safety Assistant\n\nSafeBite provides scientific decision-support based on documented laboratory research and regulatory thresholds. It does not replace medical consultation or clinical diagnoses."
                 )
               }
               style={styles.settingsRow}

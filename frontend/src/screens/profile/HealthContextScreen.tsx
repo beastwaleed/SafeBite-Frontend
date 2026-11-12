@@ -4,12 +4,14 @@ import {
   View,
   Text,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from "../../constants/theme";
 import { SafeBiteButton } from "../../components/common/SafeBiteButton";
 import { SafeBiteCard } from "../../components/common/SafeBiteCard";
@@ -99,6 +101,7 @@ export const HealthContextScreen: React.FC<HealthContextScreenProps> = ({
   onClose,
   onUpdated,
 }) => {
+  const insets = useSafeAreaInsets();
   const { refreshProfile } = useAuth();
   const [hasConsent, setHasConsent] = useState(false);
   const [selectedTags, setSelectedTags] = useState<HealthTag[]>([]);
@@ -106,6 +109,12 @@ export const HealthContextScreen: React.FC<HealthContextScreenProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showRevokeModal, setShowRevokeModal] = useState(false);
+
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === "android" ? (StatusBar.currentHeight || 28) : 0,
+    16
+  );
 
   useEffect(() => {
     loadHealthProfile();
@@ -199,17 +208,17 @@ export const HealthContextScreen: React.FC<HealthContextScreenProps> = ({
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <View style={[styles.safeArea, { paddingTop: topInset }]}>
         <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading health profile...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: topInset }]}>
       <View style={styles.topBar}>
         <TouchableOpacity
           activeOpacity={0.7}
@@ -365,7 +374,7 @@ export const HealthContextScreen: React.FC<HealthContextScreenProps> = ({
         onConfirm={handleRevokeConsent}
         onCancel={() => setShowRevokeModal(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -474,9 +483,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: SPACING.sm,
   },
   sectionTitle: {
@@ -488,6 +494,7 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.primaryMedium,
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: COLORS.textSecondary,
+    marginTop: 4,
   },
   tagsContainer: {
     width: "100%",
